@@ -1,1 +1,1 @@
-Add synthetic fixtures for provider states, missing data, network/auth failures, stale progress, and ambiguous submissions. Do not copy real account JSON or expiring signed URLs.
+`providers.json` contains synthetic Kaggle states and W&B observations, including missing progress and forbidden/network/rate-limit cases. Isolation, stale progress and ambiguous submissions use temporary runtimes/fake dispatchers in `tests/test_portal.py`. No credentials, real runs or signed URLs are fixtures. Offline success does not establish online compatibility.
