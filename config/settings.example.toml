@@ -1,0 +1,18 @@
+# Proposed settings schema; loader is to be implemented. No real credentials.
+[app]
+mode = "fixture"
+manual_refresh = true
+
+[bhsd]
+checkout = "/home/u001015/BHSD_SSL"
+# Baseline source revision; verify compatibility with actual working tree.
+revision = "e6c6e81efd1966d110d11892913058f5d1023097"
+
+[runtime]
+# Placeholder: choose a private durable location outside the source checkout.
+root = "/path/to/private/research-portal-runtime"
+
+[providers]
+kaggle_enabled = false
+wandb_enabled = false
+# Account credentials are provisioned separately, never embedded here.

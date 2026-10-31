@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+config/settings.toml
+runtime/
+secrets/
+*.log
+*.sqlite*
+*.db
+.pytest_cache/

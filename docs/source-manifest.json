@@ -1,0 +1,134 @@
+{
+  "source_checkout": "/home/u001015/BHSD_SSL",
+  "source_head": "e6c6e81efd1966d110d11892913058f5d1023097",
+  "copied_at_date": "2026-10-31",
+  "note": "Design files include uncommitted session additions; source_head alone does not reproduce them. Entries hash the original copied bytes; reference links were subsequently rewritten. No live secrets/data or training code copied.",
+  "copied_files": [
+    {
+      "source": "docs/research-portal/README.md",
+      "destination": "docs/design/README.md",
+      "sha256": "cd7833630d1b11dc2ce3214f4892af38252bfb189fce07f66f028cd4c8187b7b"
+    },
+    {
+      "source": "docs/research-portal/architecture.md",
+      "destination": "docs/design/architecture.md",
+      "sha256": "2d415e7e98f43fa5cb0b776740d90017530eea99b0807c843fb1be2a0eed06ab"
+    },
+    {
+      "source": "docs/research-portal/data-model.md",
+      "destination": "docs/design/data-model.md",
+      "sha256": "a6bf49762d68dbeed16bb3e6cd2bd7e3a64a12b5fff10e30760306e19998cea0"
+    },
+    {
+      "source": "docs/research-portal/free-managed-options.md",
+      "destination": "docs/design/free-managed-options.md",
+      "sha256": "1f5148bdb16c160337c82bf4a143fd8d73022c0924f15be74cf0d0b0a28f2ac1"
+    },
+    {
+      "source": "docs/research-portal/kaggle-operations-spec.md",
+      "destination": "docs/design/kaggle-operations-spec.md",
+      "sha256": "f36393258b5ee71de00cbaa8ff8991ed42654a015022f0070e902bc2d041859c"
+    },
+    {
+      "source": "docs/research-portal/migration-and-hosting.md",
+      "destination": "docs/design/migration-and-hosting.md",
+      "sha256": "f83b846580a36968a23ab7ad60c69a889aa23912da1a943af10a87be103f08bd"
+    },
+    {
+      "source": "docs/research-portal/platform-review-2026-10-31.md",
+      "destination": "docs/design/platform-review-2026-10-31.md",
+      "sha256": "3708fe0c7921173f5bcfd90d6f9da4b7627027813766ec6d20bfcc4302ce6f0a"
+    },
+    {
+      "source": "docs/research-portal/poc-first.md",
+      "destination": "docs/design/poc-first.md",
+      "sha256": "501f5c0f4d9d20ac99078c64b595b4016a5f69690a748c14ed8cad45b89204a7"
+    },
+    {
+      "source": "docs/research-portal/provider-capabilities.md",
+      "destination": "docs/design/provider-capabilities.md",
+      "sha256": "bb20ad4e270efa1852ded0ba86cac995ec44d2efdda8c327fe0531478f5b444b"
+    },
+    {
+      "source": "docs/research-portal/requirements.md",
+      "destination": "docs/design/requirements.md",
+      "sha256": "cb75f6a7ded5e2ba8d8984b18c1243dfab317a0210260c9a5a62ba42ccc8785c"
+    },
+    {
+      "source": "docs/research-portal/risks-and-decisions.md",
+      "destination": "docs/design/risks-and-decisions.md",
+      "sha256": "9eba449fc78a877836995a8c62cd67e0177d12c5e87d7b3a025a7769f6da6aff"
+    },
+    {
+      "source": "docs/research-portal/roadmap.md",
+      "destination": "docs/design/roadmap.md",
+      "sha256": "e0450ff080753007da000de6dfbeebd112044478cd6e33837f051f6df98af872"
+    },
+    {
+      "source": "docs/research-portal/solution-landscape.md",
+      "destination": "docs/design/solution-landscape.md",
+      "sha256": "50a4032f7f25ebe6b8990168ec176640177de5e833012a0e054c45db45a29bde"
+    },
+    {
+      "source": "docs/research-portal/ui-ux.md",
+      "destination": "docs/design/ui-ux.md",
+      "sha256": "490a28b155c40f762ac595ad5945a7b2eaf1c1df3cbd9907a4bfd5c820cbc4fa"
+    },
+    {
+      "source": "docs/guides/benchmark-protocol.md",
+      "destination": "docs/reference/bhsd/guides/benchmark-protocol.md",
+      "sha256": "c1805cb23e212959748288b1e8f437b37c11aba60a0d3fcb2856d712b8c856d9"
+    },
+    {
+      "source": "docs/guides/checkpoint-evaluation.md",
+      "destination": "docs/reference/bhsd/guides/checkpoint-evaluation.md",
+      "sha256": "bded659b87b5ffb67f80c211635e3bd6a7792bab8698f6f5a0528f192fc830b1"
+    },
+    {
+      "source": "docs/guides/checkpoint-resume.md",
+      "destination": "docs/reference/bhsd/guides/checkpoint-resume.md",
+      "sha256": "492d0acbd6d6adc177e5df8e1f83ef3c6f55c3b0bd987404bc82f89a13e337bb"
+    },
+    {
+      "source": "docs/guides/experiment-data.md",
+      "destination": "docs/reference/bhsd/guides/experiment-data.md",
+      "sha256": "d88705fcdb4670ebdc54bab2799bd52718ffecd17fe4d26e3a23bbe0d92f928b"
+    },
+    {
+      "source": "docs/guides/kaggle-troubleshooting.md",
+      "destination": "docs/reference/bhsd/guides/kaggle-troubleshooting.md",
+      "sha256": "29074363e46b8373f346eca13f72348ccd728e50cf985a1be98d2f717fed88c8"
+    },
+    {
+      "source": "docs/guides/kaggle.md",
+      "destination": "docs/reference/bhsd/guides/kaggle.md",
+      "sha256": "514dda0c7bd76d9635f031f57eb97ae38c6141a0ed1d2239fb55183e7a4d3c8c"
+    },
+    {
+      "source": "docs/guides/metrics-and-wandb.md",
+      "destination": "docs/reference/bhsd/guides/metrics-and-wandb.md",
+      "sha256": "3762dfaf981ec191d83a3a530fa6cca49cd98c824a698368cb5384512085c18b"
+    },
+    {
+      "source": "docs/guides/training.md",
+      "destination": "docs/reference/bhsd/guides/training.md",
+      "sha256": "caf316da24e0ed5c1bb2683ca72adc86c22659bb9d03837f0e86aca81a5d3978"
+    },
+    {
+      "source": "docs/guides/validation-visualization.md",
+      "destination": "docs/reference/bhsd/guides/validation-visualization.md",
+      "sha256": "89a656fd9fbd27fac84d0ccd6822760e66ea51c5beb0f3d9676cd5e46653101d"
+    },
+    {
+      "source": "docs/architecture/dataset-preprocessing.md",
+      "destination": "docs/reference/bhsd/architecture/dataset-preprocessing.md",
+      "sha256": "7a9576f4b9d356eb9062aa11806d464421ac63e4c80f04de1ab3e56b5d509002"
+    },
+    {
+      "source": "docs/architecture/training.md",
+      "destination": "docs/reference/bhsd/architecture/training.md",
+      "sha256": "bd5cd7549ee7701b94c052d9c08a71e5c8b2a264c66bef4aae49f7d072451652"
+    }
+  ],
+  "source_worktree_status": ""
+}
