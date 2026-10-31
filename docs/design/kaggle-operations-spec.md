@@ -1,5 +1,7 @@
 # Đặc tả Kaggle Operations MVP
 
+> Đối chiếu implementation mới tại [status](../IMPLEMENTATION.md). Đặc tả này vẫn là tiêu chí nghiệm thu; có source không đồng nghĩa đã nghiệm thu UI hoặc tương thích online.
+
 > Điểm bắt đầu hiện hành: [PoC-first](poc-first.md) quy định stack/phạm vi mặc định. Full stack, hosting và REST API trong tài liệu này là hướng mở rộng; không yêu cầu triển khai trước PoC.
 
 Đối chiếu `tools/kaggle/kaggle_ctl.py`, `accounts_manager.py`, `notebook_builder.py` và `kaggle_executor.py` ngày **31/10/2026**. Đây là yêu cầu triển khai và nghiệm thu, chưa phải tính năng đã có. Bổ sung [platform review](platform-review-2026-10-31.md). Với ưu tiên người dùng vừa xác định, **Account UI + notebook monitor + submit form là phạm vi bản usable đầu tiên**, không cần chờ hoàn thiện toàn bộ research registry/viewer.

@@ -1,33 +1,51 @@
-# Implementation handoff
+# Implementation status
 
-## Delivery order
+Implementation follows PoC-first: one operator, session-based Streamlit and an explicit worker. This replaces the seed-only handoff; original design documents remain requirements/reference, not proof of online compatibility.
 
-| Increment | Deliverable | Validation |
+## Delivery status
+
+| Increment | Implemented | Validation boundary |
 |---|---|---|
-| P0 | Streamlit entrypoint, settings loader, typed adapter result, fixture mode | Starts without credential/GPU/network; demo labeled |
-| P1 | Account selection/test, Kaggle status/log availability, W&B config/summary/progress | Isolated identities, manual refresh, timestamps and source-specific errors |
-| P2 | Account editor and private runtime storage | Secret write-only, optimistic revision, no global fallback |
-| P3 | Options form and safe bundle preview | Match current CLI flags and actual generated metadata; no push |
-| P4 | Submit operation ledger and monitor integration | Double-click/restart safety, ambiguous timeout reconciliation |
-| Expansion | Incremental sync, output/media/artifact browser, registry; managed hosting if chosen | Follow operations/capability specs, same provenance/security contracts |
+| P0 | Fixture/live settings, Streamlit entrypoint, SQLite migrations, typed results, demo seed and worker | Core fixture workflows exercised offline; actual UI/AppTest awaits Streamlit installation |
+| P1 | Explicit connections, connection test, notebook attachment, independent manual refresh jobs, status/log availability, bounded W&B config/summary/system/progress | Synthetic failures/isolation covered; authenticated endpoints have not been probed |
+| P2 | Write-only account editor, optimistic revisions, rotation, defaults, disable/archive, private secret references | Storage contracts tested; UI interactions await AppTest |
+| P3 | Mean Teacher task/options, safe immutable preview/download, pinned source export, isolated generator/config parser, resume injection | Actual baseline BHSD generator tested offline for multiclass/binary and resume; no notebook executed |
+| P4 | Durable queue, unique idempotency, target lock, pre-dispatch fence, restart recovery, operator reconciliation, monitor attachment | Fake dispatch/timeout/crash contracts; no live submission or training |
 
-Start with app.py and adapters; shared storage helpers may be added as needed. requirements-poc.in is an input inventory only: resolve compatible versions and create a tested lockfile during implementation. Do not install BHSD requirements to run a basic UI.
+## Runtime contracts
 
-## BHSD integration inventory
+- Python 3.11; dependencies separate from BHSD training. Direct selected versions are in `requirements.txt`, test dependencies in `requirements-dev.txt`.
+- Package installation from this execution environment failed with DNS/network errors. Python 3.11 was already present; PyYAML 6.0.3 was available from local cache. A fully resolved/tested lockfile cannot be produced here yet. `tools/verify_environment.py` produces it only after installed dependencies and tests pass.
+- SQLite schema version 2 stores account metadata, immutable observations, persistent progress clocks, previews, operations and audit events. Live mode requires explicit confirmation of local filesystem semantics. Secret files are private and outside Git; orphan cleanup is offline maintenance.
+- One worker owns a runtime via an exclusive process lock. UI queues jobs; rendering only reads local state. Timeout is 40 seconds for provider subprocesses, build timeout 60 seconds; manual reads have a 10-second cooldown. No scheduler or provider auto-polling.
+- A successful account test means connectivity with the selected credential; provider principal ownership remains unverified when the endpoint cannot establish it.
+- Health uses observed iteration increases with sample timestamps. Sampled W&B history is not an exact history export. Progress clocks survive subsequent unchanged observations. A connection error preserves previous provider state.
+- The BHSD Mean Teacher logger explicitly records its training axis as `global_step`; the adapter recognizes this contract for that method. SDK `_step` and arbitrary phase-dependent `global_step` values are not treated as training iterations.
+- Previews expire after 24 hours. Account revision, credential revision, source fingerprint, options and bundle bytes are checked before dispatch. Built notebook code checkouts are pinned to the training SHA.
+- Binary mapping explicitly supplies `experiment.num_classes=2`: the baseline method YAML otherwise retains six classes. This is a portal bundle override; the BHSD checkout is not modified.
+- Resume delegates to the pinned BHSD helper. Source run config and checkpoint selection are resolved on Kaggle, not claimed to be fully resolved in the local preview; the preview records this limitation. GPU/world-size and source-run checks run before training in that helper.
+- Notebook online tracking requires an operator-attached Kaggle Secret `WANDB_API_KEY`. Private Git cloning, OAuth/access-token flows, PICK, quota and log-follow are unsupported in this version.
+- Provider versions are gated against the selected baseline before live dispatch. Missing/incompatible dependencies fail before the dispatch fence. Read checks report unsupported dependencies explicitly.
 
-Read the configurable source checkout at its supported revision. Consult:
+## Offline verification in this workspace
 
-- tools/kaggle/accounts_manager.py: legacy account lookup/import semantics; replace plaintext storage/global fallback in web flow.
-- tools/kaggle/kaggle_executor.py: account-scoped CLI execution, status/log/push; normalize responses and avoid treating stderr as provider state.
-- tools/kaggle/kaggle_ctl.py: actual build/push/status/log flags and defaults.
-- tools/kaggle/notebook_builder.py and resume.py: templates/bundle/resume restrictions; isolate workspace and prevent credential injection into downloadable code.
-- tools/crawl_run.py, crawl_kaggle.py, crawl_storage.py, fetch_wandb.py, export_wandb_history.py: observations/export references, not a durable multi-user backend.
-- configs/kaggle/notebooks.json, scripts/ notebook templates, core/config_parser.py: keep together with BHSD revision.
+Executed with Python 3.11.16 and locally cached PyYAML 6.0.3: `python -m unittest discover -s tests -q` (48 passed, 2 Streamlit tests skipped). This includes actual generator/config compatibility for four task/resume combinations, isolated account subprocess contracts, a real session-worker process and exclusive-lock check, training-axis mapping/progress persistence, idempotency, ambiguous dispatch recovery and backup/restore.
 
-Do not execute CLI account creation just to import its implementation: imports/constructors may create files. Use synthetic fixtures for first integration tests. Respect the source checkout's own instructions before editing it.
+Compilation and Git whitespace checks also passed. Streamlit/pytest and provider SDKs are not installed in the dedicated environment because package downloads failed. No provider network request, notebook execution or live training was performed.
 
-## Runtime and hosting
+## Submission safety and recovery
 
-settings.example.toml is a proposed schema, not a functioning loader. Create a user-owned runtime directory outside checkout for metadata/private secrets/cache and operation ledger; confirm local filesystem semantics for SQLite. Live credentials are supplied separately by the operator. Paths and cloud hosting are configurable, not inferred from this seed.
+Live submit is disabled by default. Enabling its configuration flag is an operator decision, not an action performed during implementation/testing. Provider push is invoked once without fallback; its SDK `timeout` argument is deliberately not used because it represents training session duration.
 
-The full-platform folder tree and free managed options are deployment alternatives. First prove adapters/read-only UI. A complete authorized task continues through requested increments; it does not require creating every researched service. Source links in reference guides may point to the original BHSD checkout and require updating when relocated.
+Before push, the worker persists a dispatch fence. Errors after this boundary retain `unknown` and the target lock, even if a local error might mean nothing was sent. Restart marks interrupted dispatches unknown and never retries them. Read-only reconciliation can collect current status but does not treat latest slug status as a version/digest match. Operators record remote-version evidence or confirm nothing was sent. Operator-reported evidence is distinguished from provider verification.
+
+Source credentials are snapshotted for dispatch; rotation preserves old private files until offline cleanup. All retained credential values and prefixes are redacted from provider observations before persistence. Downloaded previews include no local secrets or provider workspaces.
+
+## Remaining acceptance work
+
+1. On a network-enabled development machine, install `requirements-dev.txt`, run `tools/verify_environment.py`, review and retain its generated lockfile.
+2. Run Streamlit AppTest and manually exercise Accounts/Monitor/Submit using fixture mode. Validate actual browser layout and secret input clearing.
+3. Provision connections and run authorized read probes against Kaggle/W&B. Verify auth/error classification, progress keys, SDK compatibility and the experimental bounded Kaggle output-log endpoint. Unsupported/missing data must remain explicit.
+4. Verify local storage locking, backup/restore, source availability from Kaggle and Kaggle Secrets attachment. Only then authorize a controlled live submit separately if desired.
+
+See the repository README for start/stop, configuration, backup/restore and recovery commands. Do not label the offline suite as online compatibility evidence.

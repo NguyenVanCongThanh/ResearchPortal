@@ -1,5 +1,7 @@
 # Kaggle/W&B: dữ liệu có thể lấy và mức hỗ trợ thực tế
 
+> Implementation hiện hành: [status và giới hạn kiểm chứng](../IMPLEMENTATION.md). Bảng dưới là inventory tại thời điểm seed; một phần adapters đã được viết và kiểm thử offline. Chưa có authenticated online probe, không nâng mức bằng chứng của bảng này chỉ vì đã thêm source.
+
 Đối chiếu source và môi trường Python ngày **31/10/2026**. Bảng phân biệt provider hỗ trợ, repo có script và portal có implementation. **Portal hiện chưa có implementation**, nên “đã đề cập trong docs” không đồng nghĩa UI/API đã gọi được. Không gọi API có credential trong lần audit này.
 
 Môi trường kiểm tra: `kaggle==1.7.4.5`, `wandb==0.26.1` (metadata package, không login). Đọc source installed CLI cho thấy có files/pull/output, chưa có parser quota và kernels logs. W&B installed source có `heartbeatAt`, `system_metrics`, `scan_history`, `used_artifacts`. Đây là inventory khả năng code, chưa phải kiểm chứng endpoint online. Các venv/container khác có thể khác.

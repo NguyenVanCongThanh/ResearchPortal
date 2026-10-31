@@ -1,5 +1,7 @@
 # Research Portal — đánh giá và hướng triển khai
 
+> Trạng thái sau seed: đã thêm implementation PoC P0–P4; xem [implementation status](../IMPLEMENTATION.md) và [README hiện hành](../../README.md). Các nhận xét seed-only bên dưới là bối cảnh lúc bàn giao, không phải trạng thái mã nguồn mới nhất. Online/UI acceptance còn được ghi riêng.
+
 **BẮT ĐẦU TẠI ĐÂY:** [PoC đơn giản trước](poc-first.md). Khi được yêu cầu build PoC, mặc định Streamlit + Python adapters + refresh thủ công; làm P0–P1 trước. Các stack full platform/cloud bên dưới là lựa chọn mở rộng, không phải yêu cầu cài ngay.
 
 - [Managed/free hosting options](free-managed-options.md): Supabase, UI có sẵn, scheduled Python tasks; không bắt buộc VM.
