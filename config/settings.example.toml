@@ -1,18 +1,18 @@
-# Proposed settings schema; loader is to be implemented. No real credentials.
 [app]
-mode = "fixture"
-manual_refresh = true
+mode = "fixture" # fixture never calls providers; live requires provisioned connections
+allow_live_submit = false
+provider_timeout_seconds = 40
+cooldown_seconds = 10
+stale_seconds = 180
+stall_seconds = 1200
 
 [bhsd]
 checkout = "/home/u001015/BHSD_SSL"
-# Baseline source revision; verify compatibility with actual working tree.
 revision = "e6c6e81efd1966d110d11892913058f5d1023097"
 
 [runtime]
-# Placeholder: choose a private durable location outside the source checkout.
-root = "/path/to/private/research-portal-runtime"
-
-[providers]
-kaggle_enabled = false
-wandb_enabled = false
-# Account credentials are provisioned separately, never embedded here.
+# Blank uses a private per-user temporary demo directory. For live, set a durable
+# absolute path outside this repo (or use RESEARCH_PORTAL_RUNTIME).
+root = ""
+# Required for live: verify filesystem policy/locking before setting true.
+local_filesystem_confirmed = false

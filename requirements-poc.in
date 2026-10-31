@@ -1,7 +1,2 @@
-# Dependency inventory only; resolve and lock tested versions during implementation.
-streamlit
-wandb
-kaggle
-requests
-# Build/validation helpers may need PyYAML; training dependencies are separate.
-PyYAML
+# Compatibility entrypoint for the original handoff.
+-r requirements.txt

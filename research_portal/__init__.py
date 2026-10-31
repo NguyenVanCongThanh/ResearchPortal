@@ -1,0 +1,3 @@
+"""ResearchPortal: session-operated Kaggle/W&B control plane."""
+
+__version__ = "0.1.0"
