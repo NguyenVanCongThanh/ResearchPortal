@@ -1,0 +1,18 @@
+{
+  "kaggle": {
+    "default": {"provider_state_raw": "running", "provider_state_normalized": "running", "logs": {"availability": "not_yet_published", "text": ""}},
+    "queued": {"provider_state_raw": "queued", "provider_state_normalized": "queued"},
+    "complete": {"provider_state_raw": "complete", "provider_state_normalized": "complete"},
+    "failed": {"provider_state_raw": "error", "provider_state_normalized": "error"},
+    "network-error": {"error": "network_error"},
+    "forbidden": {"error": "forbidden"},
+    "rate-limited": {"error": "rate_limited"}
+  },
+  "wandb": {
+    "default": {"state": "running", "last_iteration": 100, "config": {"method": {"name": "mean_teacher"}, "experiment": {"task": "multiclass"}}, "summary": {"val/dice_positive_mean": 0.3, "val/dice_case_mean": 0.4}, "history_sampled": true},
+    "progress": {"state": "running", "last_iteration": 200, "config": {}, "summary": {}, "history_sampled": true},
+    "missing": {"state": "running", "last_iteration": null, "config": {}, "summary": {}},
+    "network-error": {"error": "network_error"},
+    "forbidden": {"error": "forbidden"}
+  }
+}
