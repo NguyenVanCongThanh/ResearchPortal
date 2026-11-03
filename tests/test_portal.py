@@ -433,6 +433,54 @@ class PortalTests(unittest.TestCase):
         self.assertEqual(result["error"], "ambiguous_timeout")
         self.assertNotIn("synthetic-only-key", json.dumps(result))
 
+    def test_parse_log_progress(self):
+        from research_portal.provider_child import parse_log_progress
+        log = """
+        [2026-11-03 12:00:00] Starting training on GPU
+        Epoch 1/50 - Iteration 50 - loss: 0.8921
+        Epoch 2/50 - Iteration 100 - loss: 0.4532
+        Validation score: 0.88
+        """
+        parsed = parse_log_progress(log)
+        self.assertEqual(parsed.get("epoch"), "2/50")
+        self.assertEqual(parsed.get("iteration"), 100)
+        self.assertAlmostEqual(parsed.get("loss"), 0.4532)
+        self.assertIn("Validation score", parsed.get("recent_line", ""))
+
+        self.assertEqual(parse_log_progress(""), {})
+        self.assertEqual(parse_log_progress("Random unformatted output"), {"recent_line": "Random unformatted output"})
+
+    def test_monitor_health_with_kaggle_log_progress(self):
+        t1 = (datetime.now(timezone.utc) - timedelta(seconds=60)).isoformat()
+        t2 = datetime.now(timezone.utc).isoformat()
+        obs1 = {
+            "fetched_at": t1,
+            "data": {
+                "provider_state_normalized": "running",
+                "logs": {"availability": "available", "progress": {"iteration": 100, "epoch": "1/10", "loss": 0.5}},
+            },
+        }
+        obs2 = {
+            "fetched_at": t2,
+            "data": {
+                "provider_state_normalized": "running",
+                "logs": {"availability": "available", "progress": {"iteration": 200, "epoch": "2/10", "loss": 0.3}},
+            },
+        }
+        health = monitor_health([obs2, obs1], [])
+        self.assertEqual(health["provider_state"], "running")
+        self.assertEqual(health["last_iteration"], 200)
+        self.assertEqual(health["last_epoch"], "2/10")
+        self.assertEqual(health["last_loss"], 0.3)
+        self.assertEqual(health["health"], "progressing")
+        self.assertEqual(health["progress_source"], "kaggle_logs")
+
+    def test_capabilities_reflect_kaggle_logs(self):
+        from research_portal.providers import capabilities
+        caps = capabilities()
+        self.assertEqual(caps["kaggle_logs"], "kernels_logs")
+        self.assertEqual(caps["logs_follow"], "supported")
+
     def test_worker_cli_consumes_job_and_enforces_single_owner(self):
         op = self.service.test_connection(self.a["id"])
         env = dict(os.environ, RESEARCH_PORTAL_MODE="fixture", RESEARCH_PORTAL_RUNTIME=str(self.store.root),

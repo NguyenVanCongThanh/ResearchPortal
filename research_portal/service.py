@@ -175,20 +175,42 @@ def monitor_health(kaggle, wandb, *, stall_seconds=1200, stale_seconds=180):
     if good_w:
         result["last_iteration"] = good_w[0]["data"].get("last_iteration")
         result["last_progress_at"] = good_w[0]["data"].get("observed_last_progress_at")
+    elif good_k:
+        k_logs = good_k["data"].get("logs", {})
+        log_prog = k_logs.get("progress", {})
+        if log_prog.get("iteration") is not None:
+            result["last_iteration"] = log_prog["iteration"]
+        if log_prog.get("epoch"):
+            result["last_epoch"] = log_prog["epoch"]
+        if log_prog.get("loss") is not None:
+            result["last_loss"] = log_prog["loss"]
+        if log_prog.get("recent_line"):
+            result["log_recent_line"] = log_prog["recent_line"]
     if state in ("complete", "error", "cancelled"):
         result["health"] = "terminal"
         return result
     # Observed increase must have a NEW sample timestamp; resampling an old row
     # must not repeatedly refresh the progress clock.
-    for newer, older in zip(good_w, good_w[1:]):
-        if result["last_progress_at"]:
-            break
-        a, b = newer["data"], older["data"]
-        ai, bi = a.get("last_iteration"), b.get("last_iteration")
-        sample = a.get("progress_sample_at")
-        if isinstance(ai, (int, float)) and isinstance(bi, (int, float)) and ai > bi and sample:
-            result["last_progress_at"] = sample
-            break
+    if good_w:
+        for newer, older in zip(good_w, good_w[1:]):
+            if result["last_progress_at"]:
+                break
+            a, b = newer["data"], older["data"]
+            ai, bi = a.get("last_iteration"), b.get("last_iteration")
+            sample = a.get("progress_sample_at")
+            if isinstance(ai, (int, float)) and isinstance(bi, (int, float)) and ai > bi and sample:
+                result["last_progress_at"] = sample
+                break
+    elif good_k:
+        for newer, older in zip(kaggle, kaggle[1:]):
+            if newer.get("error") or older.get("error"):
+                continue
+            np = newer.get("data", {}).get("logs", {}).get("progress", {}).get("iteration")
+            op = older.get("data", {}).get("logs", {}).get("progress", {}).get("iteration")
+            if isinstance(np, (int, float)) and isinstance(op, (int, float)) and np > op:
+                result["last_progress_at"] = newer.get("fetched_at")
+                result["progress_source"] = "kaggle_logs"
+                break
     elapsed = age(result["last_progress_at"])
     if state == "queued":
         result["health"] = "pending"

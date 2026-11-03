@@ -1,6 +1,10 @@
 # Selected direct dependencies; transitive resolution awaits network-enabled validation.
+fastapi==0.162.0
+uvicorn==0.54.0
+httpx==0.28.1
 streamlit==1.51.0
-kaggle==1.7.4.5
+kaggle==2.0.2
+kagglesdk==0.1.20
 wandb==0.26.1
 requests==2.32.5
 PyYAML==6.0.3

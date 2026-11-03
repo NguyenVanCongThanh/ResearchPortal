@@ -125,8 +125,25 @@ def monitor_ui(settings, store, service):
                 good = next((o for o in observations if not o.get("error")), None)
                 if good:
                     st.json(good)
-                    if good["data"].get("logs", {}).get("text"):
-                        st.code(good["data"]["logs"]["text"], language=None)
+                    logs_info = good["data"].get("logs", {})
+                    log_text = logs_info.get("text", "")
+                    log_prog = logs_info.get("progress", {})
+                    if log_prog:
+                        cols = st.columns(4)
+                        if log_prog.get("epoch"):
+                            cols[0].metric("Epoch (Logs)", str(log_prog["epoch"]))
+                        if log_prog.get("iteration") is not None:
+                            cols[1].metric("Iteration (Logs)", str(log_prog["iteration"]))
+                        if log_prog.get("loss") is not None:
+                            cols[2].metric("Loss (Logs)", f"{log_prog['loss']:.4f}")
+                        if log_prog.get("recent_line"):
+                            st.caption(f"Latest log line: `{log_prog['recent_line']}`")
+                    if log_text:
+                        source_label = logs_info.get("source", "cli_kernels_logs")
+                        with st.expander(f"Kaggle Execution Logs ({len(log_text.splitlines())} lines · {source_label})", expanded=False):
+                            if logs_info.get("truncated"):
+                                st.caption("Log output truncated to latest 64KB for safety.")
+                            st.code(log_text, language=None)
 
 
 def submit_ui(settings, store, service):

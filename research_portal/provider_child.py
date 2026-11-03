@@ -31,11 +31,51 @@ def error_code(exc):
     return "unknown"
 
 
+def parse_log_progress(text):
+    if not text:
+        return {}
+    progress = {}
+    lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
+    if not lines:
+        return {}
+    progress["recent_line"] = lines[-1][:120]
+    import re
+    for line in reversed(lines[-50:]):
+        if "epoch" not in progress:
+            m = re.search(r"\bepoch[^\d]*(\d+)(?:[^\d/]+(\d+)|/(\d+))?", line, re.IGNORECASE)
+            if m:
+                cur = m.group(1)
+                total = m.group(2) or m.group(3)
+                progress["epoch"] = f"{cur}/{total}" if total else cur
+        if "iteration" not in progress:
+            m = re.search(r"\b(?:iteration|iter|step)[^\d]*(\d+)(?:[^\d/]+(\d+)|/(\d+))?", line, re.IGNORECASE)
+            if m:
+                cur = m.group(1)
+                total = m.group(2) or m.group(3)
+                progress["iteration"] = int(cur)
+                if total:
+                    progress["iteration_total"] = int(total)
+        if "loss" not in progress:
+            m = re.search(r"\bloss[^\d\w]*([0-9]+\.[0-9]+)", line, re.IGNORECASE)
+            if m:
+                progress["loss"] = float(m.group(1))
+        if len(progress) >= 4:
+            break
+    return progress
+
+
 def kaggle(request):
-    # Only legacy username/key is offered by v1; do not claim token/OAuth support.
-    path = Path(os.environ["KAGGLE_CONFIG_DIR"]) / "kaggle.json"
-    path.write_text(json.dumps({"username": request["principal"], "key": request["secret"]}))
-    path.chmod(0o600)
+    # Support both Kaggle Access Token (KGAT_...) and legacy API key.
+    secret = str(request.get("secret", "")).strip()
+    if secret.startswith("KGAT_"):
+        os.environ["KAGGLE_API_TOKEN"] = secret
+        token_path = Path(os.environ["KAGGLE_CONFIG_DIR"]) / "access_token"
+        token_path.write_text(secret)
+        token_path.chmod(0o600)
+    else:
+        path = Path(os.environ["KAGGLE_CONFIG_DIR"]) / "kaggle.json"
+        path.write_text(json.dumps({"username": request["principal"], "key": secret}))
+        path.chmod(0o600)
     from kaggle.api.kaggle_api_extended import KaggleApi
     api = KaggleApi()
     api.authenticate()
@@ -65,34 +105,80 @@ def kaggle(request):
     states = {"queued": "queued", "running": "running", "complete": "complete", "error": "error",
               "cancelacknowledged": "cancelled", "cancel_acknowledged": "cancelled"}
     data = {"provider_state_raw": status, "provider_state_normalized": states.get(status, "unknown"),
-            "logs": {"availability": "unsupported", "text": ""}}
-    # Bounded legacy output endpoint. Never follow URLs or download outputs/checkpoints.
-    try:
-        import requests
-        owner, slug = ref.split("/")
-        with requests.get("https://www.kaggle.com/api/v1/kernels/output", params={"userName": owner, "kernelSlug": slug},
-                          auth=(request["principal"], request["secret"]), timeout=10, stream=True) as response:
-            if response.status_code == 200:
-                body = bytearray()
-                for block in response.iter_content(8192):
-                    body.extend(block)
-                    if len(body) > 1_000_000:
-                        data["logs"] = {"availability": "truncated", "text": "", "reason": "Output response exceeds 1 MB"}
-                        break
-                else:
-                    raw = json.loads(body).get("log") or ""
-                    try:
-                        events = json.loads(raw)
-                        if isinstance(events, list):
-                            raw = "".join(e.get("data", "") for e in events if isinstance(e, dict))
-                    except ValueError:
-                        pass
-                    data["logs"] = {"availability": "available" if raw else "not_yet_published", "text": raw[-64000:], "truncated": len(raw) > 64000}
+            "logs": {"availability": "unsupported", "text": "", "source": "none", "progress": {}}}
+    # Fetch logs via official Kaggle CLI API (kernels_logs) or bounded legacy endpoint fallback.
+    if hasattr(api, "kernels_logs"):
+        try:
+            raw = api.kernels_logs(ref) or ""
+            if raw:
+                truncated = len(raw) > 64000
+                data["logs"] = {
+                    "availability": "available",
+                    "text": raw[-64000:] if truncated else raw,
+                    "truncated": truncated,
+                    "source": "cli_kernels_logs",
+                    "progress": parse_log_progress(raw),
+                    "total_bytes": len(raw),
+                }
             else:
-                data["logs"]["availability"] = {403: "forbidden", 404: "not_yet_published", 429: "rate_limited"}.get(response.status_code, "unknown")
+                data["logs"] = {"availability": "not_yet_published", "text": "", "source": "cli_kernels_logs", "progress": {}}
+        except Exception as exc:
+            code = error_code(exc)
+            data["logs"] = {
+                "availability": "forbidden" if code == "forbidden" else ("rate_limited" if code == "rate_limited" else ("network_error" if code == "network_error" else "not_yet_published")),
+                "text": "",
+                "source": "cli_kernels_logs",
+                "progress": {},
+            }
+    else:
+        try:
+            import requests
+            owner, slug = ref.split("/")
+            with requests.get("https://www.kaggle.com/api/v1/kernels/output", params={"userName": owner, "kernelSlug": slug},
+                              auth=(request["principal"], request["secret"]), timeout=10, stream=True) as response:
+                if response.status_code == 200:
+                    body = bytearray()
+                    for block in response.iter_content(8192):
+                        body.extend(block)
+                        if len(body) > 1_000_000:
+                            data["logs"] = {"availability": "truncated", "text": "", "reason": "Output response exceeds 1 MB", "source": "legacy_endpoint", "progress": {}}
+                            break
+                    else:
+                        raw = json.loads(body).get("log") or ""
+                        try:
+                            events = json.loads(raw)
+                            if isinstance(events, list):
+                                raw = "".join(e.get("data", "") for e in events if isinstance(e, dict))
+                        except ValueError:
+                            pass
+                        truncated = len(raw) > 64000
+                        data["logs"] = {
+                            "availability": "available" if raw else "not_yet_published",
+                            "text": raw[-64000:],
+                            "truncated": truncated,
+                            "source": "legacy_endpoint",
+                            "progress": parse_log_progress(raw),
+                        }
+                else:
+                    data["logs"]["availability"] = {403: "forbidden", 404: "not_yet_published", 429: "rate_limited"}.get(response.status_code, "unknown")
+        except Exception:
+            data["logs"]["availability"] = "network_error"
+    remote_version = None
+    try:
+        with api.build_kaggle_client() as kaggle_client:
+            from kagglesdk.kernels.types.kernels_api_service import ApiGetKernelRequest
+            owner, slug = ref.split("/")
+            k_req = ApiGetKernelRequest()
+            k_req.user_name = owner
+            k_req.kernel_slug = slug
+            k_res = kaggle_client.kernels.kernels_api_client.get_kernel(k_req)
+            if hasattr(k_res, "metadata") and k_res.metadata:
+                ver = getattr(k_res.metadata, "current_version_number", None) or getattr(k_res.metadata, "currentVersionNumber", None)
+                if ver is not None:
+                    remote_version = str(ver)
     except Exception:
-        data["logs"]["availability"] = "network_error"
-    return {"data": data}
+        pass
+    return {"data": data, "remote_version": remote_version}
 
 
 def wandb(request):

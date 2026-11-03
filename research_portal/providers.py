@@ -26,8 +26,12 @@ def capabilities():
             versions[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:
             versions[name] = "not_installed"
-    return {"versions": versions, "quota": "unsupported", "logs_follow": "unsupported",
-            "kaggle_logs": "experimental_output_endpoint", "authenticated_compatibility": "unverified",
+    k_ver = versions.get("kaggle", "")
+    has_cli_logs = bool(k_ver and not k_ver.startswith("1."))
+    return {"versions": versions, "quota": "unsupported",
+            "logs_follow": "supported" if has_cli_logs else "unsupported",
+            "kaggle_logs": "kernels_logs" if has_cli_logs else "experimental_output_endpoint",
+            "authenticated_compatibility": "unverified",
             "templates": {"mean_teacher": ["multiclass", "binary", "resume"], "pick": "unsupported"}}
 
 
@@ -37,12 +41,12 @@ class Providers:
 
     @staticmethod
     def preflight(provider):
-        expected = {"kaggle": "1.7.4.5", "wandb": "0.26.1"}[provider]
+        supported = {"kaggle": {"2.0.2", "1.7.4.5"}, "wandb": {"0.26.1"}}[provider]
         try:
             installed = importlib.metadata.version(provider)
         except importlib.metadata.PackageNotFoundError:
             raise PortalError("Provider dependency is missing; install requirements.txt in the worker environment") from None
-        if installed != expected:
+        if installed not in supported:
             raise PortalError("Provider version differs from the pinned adapter baseline; compatibility validation required")
 
     def call(self, account_id, action, remote_ref="", bundle=None, *, account_snapshot=None, secret_snapshot=None):

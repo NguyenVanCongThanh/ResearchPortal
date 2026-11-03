@@ -15,7 +15,7 @@ class Settings:
     mode: str = "fixture"
     runtime: Path = Path(tempfile.gettempdir()) / f"research-portal-{os.getuid()}"
     bhsd: Path = Path("/home/u001015/BHSD_SSL")
-    revision: str = "e6c6e81efd1966d110d11892913058f5d1023097"
+    revision: str = "8d4a78e96400eb94d3c07fce810e495845df3783"
     allow_live_submit: bool = False
     timeout: int = 40
     cooldown: int = 10
