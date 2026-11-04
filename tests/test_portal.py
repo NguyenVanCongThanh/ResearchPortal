@@ -450,6 +450,23 @@ class PortalTests(unittest.TestCase):
         self.assertEqual(parse_log_progress(""), {})
         self.assertEqual(parse_log_progress("Random unformatted output"), {"recent_line": "Random unformatted output"})
 
+    def test_extract_wandb_telemetry_and_scrub_non_finite(self):
+        from research_portal.domain import extract_wandb_telemetry
+        rows = [
+            {"global_step": 100, "train/supervised": 0.65, "train/consistency": 0.12, "train/lr": 0.01, "_runtime": 60.0},
+            {"global_step": 200, "val/mDice": 0.25, "val/best_mDice": 0.25, "_runtime": 120.0, "train/supervised": float("nan")},
+        ]
+        summary = {"global_step": 200, "best_mDice": 0.25, "train/supervised": 0.55, "_runtime": 120.0, "bad": float("nan")}
+        telemetry = extract_wandb_telemetry(rows, summary)
+        self.assertEqual(telemetry["live_metrics"]["iteration"], 200)
+        self.assertEqual(telemetry["live_metrics"]["best_dice"], 0.25)
+        self.assertEqual(len(telemetry["curves"]["train"]), 1)
+        self.assertEqual(len(telemetry["curves"]["val"]), 1)
+        self.assertIn("[TRAIN]", telemetry["live_log_text"])
+        self.assertIn("[VAL]", telemetry["live_log_text"])
+        self.assertIsNone(scrub({"nan_val": float("nan"), "inf_val": float("inf")})["nan_val"])
+        self.assertIsNone(scrub({"nan_val": float("nan"), "inf_val": float("inf")})["inf_val"])
+
     def test_monitor_health_with_kaggle_log_progress(self):
         t1 = (datetime.now(timezone.utc) - timedelta(seconds=60)).isoformat()
         t2 = datetime.now(timezone.utc).isoformat()

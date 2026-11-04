@@ -155,6 +155,114 @@ function updateMonitorStats(notebooks) {
   document.getElementById('stat-stalled').textContent = notebooks.filter(n => n.health?.health === 'suspected_stall').length;
 }
 
+function formatDurationSec(sec) {
+  if (typeof sec !== 'number' || !Number.isFinite(sec) || sec < 0) return null;
+  const total = Math.floor(sec);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+  return `${s}s`;
+}
+
+function renderSvgChart(points, seriesList, title, emptyLabel) {
+  if (!Array.isArray(points) || points.length === 0) {
+    return `
+      <div class="bg-slate-950/90 border border-slate-800/80 rounded-lg p-3 flex flex-col justify-between min-h-[130px]">
+        <div class="text-[11px] font-semibold text-slate-300">${escapeHtml(title)}</div>
+        <div class="text-xs text-slate-500 font-mono my-auto text-center py-6">${escapeHtml(emptyLabel)}</div>
+      </div>`;
+  }
+
+  const W = 380, H = 96, padL = 38, padR = 10, padT = 10, padB = 18;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const steps = points.map(p => Number(p.step)).filter(Number.isFinite);
+  const minStep = Math.min(...steps);
+  const maxStep = Math.max(...steps);
+  const stepSpan = Math.max(1, maxStep - minStep);
+
+  const allVals = [];
+  for (const s of seriesList) {
+    for (const p of points) {
+      const v = p[s.key];
+      if (typeof v === 'number' && Number.isFinite(v)) allVals.push(v);
+    }
+  }
+  if (!allVals.length) {
+    return `
+      <div class="bg-slate-950/90 border border-slate-800/80 rounded-lg p-3">
+        <div class="text-[11px] font-semibold text-slate-300">${escapeHtml(title)}</div>
+        <div class="text-xs text-slate-500 font-mono text-center py-6">${escapeHtml(emptyLabel)}</div>
+      </div>`;
+  }
+
+  let minY = Math.min(...allVals);
+  let maxY = Math.max(...allVals);
+  if (Math.abs(maxY - minY) < 1e-6) {
+    minY = Math.max(0, minY - 0.05);
+    maxY = maxY + 0.05;
+  } else {
+    const margin = (maxY - minY) * 0.08;
+    minY = Math.max(0, minY - margin);
+    maxY = maxY + margin;
+  }
+  const ySpan = Math.max(1e-6, maxY - minY);
+
+  const toX = step => padL + ((step - minStep) / stepSpan) * plotW;
+  const toY = val => padT + plotH - ((val - minY) / ySpan) * plotH;
+
+  const polylines = seriesList.map(s => {
+    const valid = points.filter(p => typeof p[s.key] === 'number' && Number.isFinite(p[s.key]));
+    if (!valid.length) return '';
+    const coords = valid.map(p => `${toX(p.step).toFixed(1)},${toY(p[s.key]).toFixed(1)}`).join(' ');
+    const last = valid[valid.length - 1];
+    const lx = toX(last.step).toFixed(1);
+    const ly = toY(last[s.key]).toFixed(1);
+    const dash = s.dashed ? 'stroke-dasharray="3,3"' : '';
+    return `
+      ${valid.length > 1 ? `<polyline fill="none" stroke="${s.color}" stroke-width="1.75" ${dash} points="${coords}" />` : ''}
+      <circle cx="${lx}" cy="${ly}" r="2.8" fill="${s.color}" />
+    `;
+  }).join('');
+
+  const legend = seriesList.map(s => {
+    const valid = points.filter(p => typeof p[s.key] === 'number' && Number.isFinite(p[s.key]));
+    const lastVal = valid.length ? valid[valid.length - 1][s.key] : null;
+    return `
+      <span class="inline-flex items-center gap-1 text-[10px] font-mono text-slate-300">
+        <span class="w-2 h-2 rounded-full inline-block" style="background:${s.color}"></span>
+        ${escapeHtml(s.label)}: <strong class="text-white">${lastVal !== null ? Number(lastVal).toFixed(4) : '—'}</strong>
+      </span>`;
+  }).join('');
+
+  const midY = (minY + maxY) / 2;
+
+  return `
+    <div class="bg-slate-950/90 border border-slate-800/80 rounded-lg p-3 space-y-1.5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-[11px] font-semibold text-slate-300">${escapeHtml(title)}</span>
+        <div class="flex flex-wrap items-center gap-2.5">${legend}</div>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" class="w-full h-24 select-none">
+        <!-- Grid lines -->
+        <line x1="${padL}" y1="${padT}" x2="${W - padR}" y2="${padT}" stroke="#1e293b" stroke-width="1" />
+        <line x1="${padL}" y1="${(padT + plotH / 2).toFixed(1)}" x2="${W - padR}" y2="${(padT + plotH / 2).toFixed(1)}" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2" />
+        <line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="#334155" stroke-width="1" />
+        <!-- Y labels -->
+        <text x="${padL - 4}" y="${padT + 4}" text-anchor="end" fill="#64748b" font-size="8.5" font-family="monospace">${maxY.toFixed(3)}</text>
+        <text x="${padL - 4}" y="${(padT + plotH / 2 + 3).toFixed(1)}" text-anchor="end" fill="#64748b" font-size="8.5" font-family="monospace">${midY.toFixed(3)}</text>
+        <text x="${padL - 4}" y="${padT + plotH}" text-anchor="end" fill="#64748b" font-size="8.5" font-family="monospace">${minY.toFixed(3)}</text>
+        <!-- X labels -->
+        <text x="${padL}" y="${H - 3}" text-anchor="start" fill="#64748b" font-size="8.5" font-family="monospace">step ${minStep}</text>
+        <text x="${W - padR}" y="${H - 3}" text-anchor="end" fill="#94a3b8" font-size="8.5" font-family="monospace">step ${maxStep} (${points.length} pts)</text>
+        ${polylines}
+      </svg>
+    </div>`;
+}
+
 function renderNotebooks(notebooks) {
   const container = document.getElementById('notebooks-container');
   if (!container) return;
@@ -183,22 +291,72 @@ function renderNotebooks(notebooks) {
     const latestWandb = nb.latest_wandb || null;
     const wData = (latestWandb && !latestWandb.error) ? (latestWandb.data || {}) : {};
     const wSummary = wData.summary || {};
+    const liveMetrics = wData.live_metrics || {};
+    const curves = wData.curves || {};
+    const trainCurve = Array.isArray(curves.train) ? curves.train : [];
+    const valCurve = Array.isArray(curves.val) ? curves.val : [];
+    const hasCurves = trainCurve.length > 0 || valCurve.length > 0;
 
     const logsSummary = nb.logs_summary || {};
     const logProg = logsSummary.progress || {};
     const cachedLog = state.notebookLogs[nb.id] || {};
-    const logText = cachedLog.text || '';
-    const logLines = logsSummary.line_count ?? (logText ? logText.split('\n').length : 0);
+    const kaggleLogText = cachedLog.text || '';
+    const wandbLiveText = cachedLog.wandb_live_text || '';
+    const usingWandbStream = !kaggleLogText && !!wandbLiveText;
+    const activeLogText = kaggleLogText || wandbLiveText;
+    const kaggleLines = logsSummary.line_count ?? (kaggleLogText ? kaggleLogText.split('\n').length : 0);
+    const wandbLines = logsSummary.wandb_live_lines || (wandbLiveText ? wandbLiveText.split('\n').length : 0);
     const isLogOpen = !!state.expandedLogs[nb.id];
     const safeId = escapeHtml(nb.id);
     const safeKernel = escapeHtml(nb.kernel);
     const safeVer = escapeHtml(nb.remote_version);
 
-    const summaryMetrics = Object.entries(wSummary)
-      .filter(([, v]) => typeof v === 'number')
-      .slice(0, 4)
-      .map(([k, v]) => `<span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 font-mono text-[11px] text-slate-300">${escapeHtml(k)}: <strong class="text-emerald-400">${Number(v).toFixed(4)}</strong></span>`)
-      .join(' ');
+    const badgeItems = [];
+    const bestDice = liveMetrics.best_dice ?? wSummary['best_mDice'] ?? wSummary['val/best_mDice'] ?? wSummary['val/mDice.max'];
+    const bestIter = liveMetrics.best_iter ?? wSummary['train/best_iter'];
+    const valDice = liveMetrics.val_dice ?? wSummary['val/mDice'] ?? wSummary['val/dice_positive_mean'];
+    const supLoss = liveMetrics.supervised_loss ?? wSummary['train/supervised'];
+    const consLoss = liveMetrics.consistency_loss ?? wSummary['train/consistency'];
+    const minTotal = liveMetrics.total_loss_min ?? wSummary['train/total.min'];
+    const lrVal = liveMetrics.lr ?? wSummary['train/lr'];
+    const runtimeSec = liveMetrics.runtime_seconds ?? wSummary['_runtime'];
+
+    if (typeof bestDice === 'number') {
+      badgeItems.push(`<span class="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/70 font-mono text-[11px] text-slate-200">Best mDice: <strong class="text-emerald-400">${bestDice.toFixed(4)}</strong>${typeof bestIter === 'number' ? ` <span class="text-slate-400">@${bestIter}</span>` : ''}</span>`);
+    }
+    if (typeof valDice === 'number' && valDice !== bestDice) {
+      badgeItems.push(`<span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300">Val mDice: <strong class="text-violet-400">${valDice.toFixed(4)}</strong></span>`);
+    }
+    if (typeof supLoss === 'number') {
+      badgeItems.push(`<span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300">Sup Loss: <strong class="text-emerald-400">${supLoss.toFixed(4)}</strong></span>`);
+    }
+    if (typeof consLoss === 'number') {
+      badgeItems.push(`<span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300">Cons Loss: <strong class="text-sky-400">${consLoss.toFixed(4)}</strong></span>`);
+    }
+    if (typeof minTotal === 'number') {
+      badgeItems.push(`<span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300">Total (min): <strong class="text-amber-400">${minTotal.toFixed(4)}</strong></span>`);
+    }
+    if (typeof lrVal === 'number') {
+      badgeItems.push(`<span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300">LR: <strong class="text-slate-200">${lrVal.toFixed(5)}</strong></span>`);
+    }
+    const fmtRt = formatDurationSec(runtimeSec);
+    if (fmtRt) {
+      badgeItems.push(`<span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300">Runtime: <strong class="text-slate-200">${escapeHtml(fmtRt)}</strong></span>`);
+    }
+    if (!badgeItems.length) {
+      Object.entries(wSummary)
+        .filter(([k, v]) => typeof v === 'number' && !k.startsWith('_'))
+        .slice(0, 4)
+        .forEach(([k, v]) => {
+          badgeItems.push(`<span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300">${escapeHtml(k)}: <strong class="text-emerald-400">${Number(v).toFixed(4)}</strong></span>`);
+        });
+    }
+    const summaryMetrics = badgeItems.join(' ');
+    const logButtonSummary = kaggleLines > 0
+      ? `${kaggleLines} lines · Kaggle ${logsSummary.availability || 'available'}`
+      : (wandbLines > 0
+          ? `W&B Live Stream: ${wandbLines} steps · Kaggle stdout: ${logsSummary.availability || 'not_yet_published'}`
+          : `0 lines · ${logsSummary.availability || 'not_yet_published'}`);
 
     return `
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-sm hover:border-slate-700 transition">
@@ -280,8 +438,31 @@ function renderNotebooks(notebooks) {
 
         ${summaryMetrics ? `
           <div class="flex flex-wrap items-center gap-2 text-xs">
-            <span class="text-slate-400 font-medium">W&amp;B Summary:</span>
+            <span class="text-slate-400 font-medium">W&amp;B Live Summary:</span>
             ${summaryMetrics}
+          </div>
+        ` : ''}
+
+        ${hasCurves ? `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-0.5">
+            ${renderSvgChart(
+              trainCurve,
+              [
+                { key: 'sup', label: 'Sup Loss', color: '#10b981', dashed: false },
+                { key: 'cons', label: 'Cons Loss', color: '#38bdf8', dashed: false },
+              ],
+              'W&B Training Loss (Realtime)',
+              'No training loss points yet'
+            )}
+            ${renderSvgChart(
+              valCurve,
+              [
+                { key: 'dice', label: 'Val mDice', color: '#a78bfa', dashed: false },
+                { key: 'best', label: 'Best mDice', color: '#fbbf24', dashed: true },
+              ],
+              'W&B Validation mDice (Realtime)',
+              'Waiting for first validation step'
+            )}
           </div>
         ` : ''}
 
@@ -297,7 +478,7 @@ function renderNotebooks(notebooks) {
           <div class="flex items-center justify-between">
             <button onclick="toggleNotebookLog('${safeId}')" class="text-xs font-medium text-slate-400 hover:text-white flex items-center gap-1.5 transition">
               <svg class="w-3.5 h-3.5 transform ${isLogOpen ? 'rotate-90' : ''} transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-              <span>Execution Logs (${escapeHtml(logLines)} lines · ${escapeHtml(logsSummary.availability || 'unavailable')})</span>
+              <span>Execution Logs (${escapeHtml(logButtonSummary)})</span>
             </button>
             ${isLogOpen ? `
               <div class="flex items-center space-x-2">
@@ -313,11 +494,11 @@ function renderNotebooks(notebooks) {
                   <span class="h-2.5 w-2.5 rounded-full bg-rose-500/80"></span>
                   <span class="h-2.5 w-2.5 rounded-full bg-amber-500/80"></span>
                   <span class="h-2.5 w-2.5 rounded-full bg-emerald-500/80"></span>
-                  <span class="text-xs text-slate-400 font-mono ml-2">kaggle kernels logs ${safeKernel}</span>
+                  <span class="text-xs text-slate-400 font-mono ml-2">${usingWandbStream ? `wandb live-telemetry ${escapeHtml(nb.run_ref || '')}` : `kaggle kernels logs ${safeKernel}`}</span>
                 </div>
-                <span class="text-[10px] text-slate-500 font-mono">${logsSummary.truncated ? 'Truncated to 64KB tail' : 'Output'}</span>
+                <span class="text-[10px] text-slate-500 font-mono">${usingWandbStream ? 'W&B Live Step Stream (Kaggle batch stdout publishes on completion)' : (logsSummary.truncated ? 'Truncated to 64KB tail' : 'Kaggle Console Output')}</span>
               </div>
-              <div class="terminal-body" id="term-${safeId}">${escapeHtml(logText || 'No log output published yet.')}</div>
+              <div class="terminal-body" id="term-${safeId}">${escapeHtml(activeLogText || 'No log output published yet.')}</div>
             </div>
           ` : ''}
         </div>
@@ -335,7 +516,8 @@ async function toggleNotebookLog(nbId) {
 }
 
 function copyLog(nbId) {
-  const text = state.notebookLogs[nbId]?.text || '';
+  const entry = state.notebookLogs[nbId] || {};
+  const text = entry.text || entry.wandb_live_text || '';
   navigator.clipboard.writeText(text);
   showToast('Logs copied to clipboard');
 }
@@ -347,11 +529,16 @@ async function checkNotebookNow(nbId) {
     const res = await fetch(`/api/notebooks/${encodeURIComponent(nbId)}/check`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(extractErrorMessage(data, 'Check request failed'));
-    showToast('Check enqueued. Refreshing observations in 1.5s...');
-    setTimeout(() => {
-      fetchNotebooks();
+    showToast('Check enqueued. Fetching live Kaggle & W&B telemetry...');
+    setTimeout(async () => {
+      if (state.expandedLogs[nbId]) await fetchNotebookLogText(nbId);
+      await fetchNotebooks();
+    }, 1800);
+    setTimeout(async () => {
+      if (state.expandedLogs[nbId]) await fetchNotebookLogText(nbId);
+      await fetchNotebooks();
       if (btn) btn.disabled = false;
-    }, 1500);
+    }, 4200);
   } catch (err) {
     showToast(err.message, 'error');
     if (btn) btn.disabled = false;

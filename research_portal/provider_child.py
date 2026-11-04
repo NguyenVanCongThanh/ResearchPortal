@@ -213,18 +213,28 @@ def wandb(request):
         _ = api.viewer
         return {"data": {"connection": "verified", "principal_verification": "unverified"}}
     run = api.run(request["remote_ref"])
-    rows = run.history(samples=20, pandas=False)
+    try:
+        rows = run.history(samples=200, pandas=False) or []
+    except Exception:
+        rows = []
     # These are bounded sampled points, not an exact history export or a proof of recency.
-    from .domain import sampled_progress
+    from .domain import extract_wandb_telemetry, sampled_progress
     config = dict(run.config)
+    raw_summary = dict(run.summary)
     method = config.get("method", {})
     method = method.get("name") if isinstance(method, dict) else method
     progress = sampled_progress(rows, method)
+    telemetry = extract_wandb_telemetry(rows, raw_summary)
+    compact_summary = {
+        str(k): v for k, v in raw_summary.items()
+        if not isinstance(v, dict) or v.get("_type") not in ("table-file", "images/separated")
+    }
     attrs = getattr(run, "_attrs", {})
-    return {"data": {"state": run.state, "url": run.url, "config": config, "summary": dict(run.summary), **progress,
+    return {"data": {"state": run.state, "url": run.url, "config": config, "summary": compact_summary,
+                     **progress, **telemetry,
                      "last_telemetry_at": attrs.get("heartbeatAt"), "system": run.system_metrics,
-                     "history_sampled": True},
-            "warnings": ["Progress is sampled (20 rows); training iteration may be unavailable. Heartbeat is tracking liveness only."]}
+                     "history_sampled": True, "history_samples": len(rows)},
+            "warnings": ["Progress is sampled (up to 200 rows); training iteration may be unavailable. Heartbeat is tracking liveness only."]}
 
 
 def main():

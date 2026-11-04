@@ -128,6 +128,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         log_data = res.json()
         self.assertIn("availability", log_data)
+        self.assertIn("wandb_live_text", log_data)
 
         self.assertEqual(self.client.get("/api/notebooks/missing-id/logs").status_code, 404)
 

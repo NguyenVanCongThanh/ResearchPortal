@@ -238,6 +238,17 @@ def create_router(portal: PortalApi) -> APIRouter:
                         k_data["logs"] = k_logs
                     latest_k_summary["data"] = k_data
 
+            latest_w = w_obs[0] if w_obs else None
+            good_w = next((o for o in w_obs if not o.get("error")), None)
+            w_data_good = good_w.get("data", {}) if good_w and isinstance(good_w.get("data"), dict) else {}
+            latest_w_summary = None
+            if latest_w:
+                latest_w_summary = dict(latest_w)
+                if isinstance(latest_w_summary.get("data"), dict):
+                    w_data_copy = dict(latest_w_summary["data"])
+                    w_data_copy.pop("live_log_text", None)
+                    latest_w_summary["data"] = w_data_copy
+
             results.append({
                 "id": nb["id"],
                 "kernel": nb["kernel"],
@@ -251,7 +262,7 @@ def create_router(portal: PortalApi) -> APIRouter:
                 "health": health,
                 "remote_version": remote_ver,
                 "latest_kaggle": latest_k_summary,
-                "latest_wandb": w_obs[0] if w_obs else None,
+                "latest_wandb": latest_w_summary,
                 "logs_summary": {
                     "availability": logs_info.get("availability", "not_yet_published"),
                     "source": logs_info.get("source", "none"),
@@ -259,6 +270,7 @@ def create_router(portal: PortalApi) -> APIRouter:
                     "progress": logs_info.get("progress", {}),
                     "has_text": bool(log_text),
                     "line_count": len(log_text.splitlines()) if log_text else 0,
+                    "wandb_live_lines": w_data_good.get("live_log_lines", 0),
                 },
             })
         return results
@@ -293,9 +305,21 @@ def create_router(portal: PortalApi) -> APIRouter:
         except PortalError as exc:
             _raise_http(exc)
         k_obs = store.observations(notebook_id, "kaggle")
+        w_obs = store.observations(notebook_id, "wandb")
         good = next((o for o in k_obs if not o.get("error")), None)
+        good_w = next((o for o in w_obs if not o.get("error")), None)
+        w_data = good_w.get("data", {}) if good_w and isinstance(good_w.get("data"), dict) else {}
+        wandb_live_text = w_data.get("live_log_text", "")
+        wandb_fetched_at = good_w.get("fetched_at") if good_w else None
         if not good:
-            return {"availability": "not_yet_published", "text": "", "progress": {}, "source": "none"}
+            return {
+                "availability": "not_yet_published",
+                "text": "",
+                "progress": {},
+                "source": "none",
+                "wandb_live_text": wandb_live_text,
+                "wandb_fetched_at": wandb_fetched_at,
+            }
         logs = good["data"].get("logs", {})
         return {
             "availability": logs.get("availability", "available" if logs.get("text") else "not_yet_published"),
@@ -304,6 +328,8 @@ def create_router(portal: PortalApi) -> APIRouter:
             "source": logs.get("source", "cli_kernels_logs"),
             "progress": logs.get("progress", {}),
             "fetched_at": good.get("fetched_at"),
+            "wandb_live_text": wandb_live_text,
+            "wandb_fetched_at": wandb_fetched_at,
         }
 
     # --- Build, Preview & Submit ---
