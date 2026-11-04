@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import zipfile
 
 from .domain import BuildOptions, PortalError, canonical, digest, reference, scrub
@@ -55,34 +56,34 @@ def build(settings, store, account, options):
     if account["provider"] != "kaggle" or not account["enabled"] or account["archived"]:
         raise PortalError("Choose an enabled Kaggle account")
     preview_id = uid()
-    workspace = store.root / "work" / preview_id
-    workspace.mkdir(mode=0o700)
     bundle = store.root / "previews" / preview_id
     bundle.mkdir(mode=0o700)
-    if settings.mode == "fixture":
-        source_hash = "fixture"
-        notebook = {"nbformat": 4, "nbformat_minor": 2, "metadata": {}, "cells": [
-            {"cell_type": "markdown", "metadata": {}, "source": ["Synthetic demo; this is not a training notebook."]},
-            {"cell_type": "code", "metadata": {}, "execution_count": None, "outputs": [],
-             "source": [f"TASK = {options.task!r}\n", f"TRACKING = {options.tracking!r}\n", f"RESUME_RUN = {options.resume_run!r}\n"]}]}
-        spec = {"slug": "research-portal-demo", "title": "Research Portal Demo", "dataset_sources": []}
-        resolved = {"experiment": {"task": options.task}, "synthetic": True}
-    else:
-        inventory = source_inventory(settings)
-        source_hash = digest({name: hashlib.sha256(content).hexdigest() for name, content in inventory.items()})
-        for name, content in inventory.items():
-            path = workspace / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(content)
-        spec = json.loads(inventory["configs/kaggle/notebooks.json"])["notebooks"]["mean_teacher"]
-        request = {"workspace": str(workspace), "options": options.payload(), "revision": settings.revision}
-        process = subprocess.run([sys.executable, "-m", "research_portal.build_child"], input=canonical(request),
-                                 text=True, capture_output=True, timeout=60, env=isolated_env(workspace),
-                                 cwd=Path(__file__).resolve().parents[1])
-        if process.returncode:
-            raise PortalError("BHSD generator/config compatibility failed; inspect offline contract tests")
-        result = json.loads(process.stdout)
-        notebook, resolved = result["notebook"], result["resolved_config"]
+    with tempfile.TemporaryDirectory(dir=store.root / "work", prefix="build-") as temp_work:
+        workspace = Path(temp_work)
+        if settings.mode == "fixture":
+            source_hash = "fixture"
+            notebook = {"nbformat": 4, "nbformat_minor": 2, "metadata": {}, "cells": [
+                {"cell_type": "markdown", "metadata": {}, "source": ["Synthetic demo; this is not a training notebook."]},
+                {"cell_type": "code", "metadata": {}, "execution_count": None, "outputs": [],
+                 "source": [f"TASK = {options.task!r}\n", f"TRACKING = {options.tracking!r}\n", f"RESUME_RUN = {options.resume_run!r}\n"]}]}
+            spec = {"slug": "research-portal-demo", "title": "Research Portal Demo", "dataset_sources": []}
+            resolved = {"experiment": {"task": options.task}, "synthetic": True}
+        else:
+            inventory = source_inventory(settings)
+            source_hash = digest({name: hashlib.sha256(content).hexdigest() for name, content in inventory.items()})
+            for name, content in inventory.items():
+                path = workspace / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+            spec = json.loads(inventory["configs/kaggle/notebooks.json"])["notebooks"]["mean_teacher"]
+            request = {"workspace": str(workspace), "options": options.payload(), "revision": settings.revision}
+            process = subprocess.run([sys.executable, "-m", "research_portal.build_child"], input=canonical(request),
+                                     text=True, capture_output=True, timeout=60, env=isolated_env(workspace),
+                                     cwd=Path(__file__).resolve().parents[1])
+            if process.returncode:
+                raise PortalError("BHSD generator/config compatibility failed; inspect offline contract tests")
+            result = json.loads(process.stdout)
+            notebook, resolved = result["notebook"], result["resolved_config"]
     slug = options.slug or spec["slug"]
     title = options.title or (slug if options.slug else spec.get("title", slug))
     if len(title) < 5:

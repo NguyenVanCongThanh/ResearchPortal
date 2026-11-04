@@ -87,7 +87,7 @@ class Providers:
             secrets = self.store.redaction_values()
             return Result(account_id, remote_ref, provider, data=scrub(payload.get("data", {}), secrets),
                           error=payload.get("error"), warnings=scrub(payload.get("warnings", []), secrets),
-                          remote_version=payload.get("remote_version")).payload()
+                          remote_version=scrub(payload.get("remote_version"), secrets)).payload()
 
     def push_snapshot(self, account, credential, remote_ref, bundle):
         return self.call(account["id"], "push", remote_ref, bundle=bundle,

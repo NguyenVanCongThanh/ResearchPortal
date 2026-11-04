@@ -8,27 +8,45 @@ import sys
 
 
 def error_code(exc):
-    code = getattr(exc, "status", None) or getattr(getattr(exc, "response", None), "status_code", None)
+    code = getattr(exc, "status", None) or getattr(getattr(exc, "response", None), "status_code", None) or getattr(exc, "code", None)
     try:
         code = int(code) if code is not None else None
     except (TypeError, ValueError):
         code = None
-    if code == 401:
+    name = type(exc).__name__.lower()
+    msg = str(exc).lower()
+    if code == 401 or "authentication" in name or any(w in msg for w in ("401", "unauthorized", "unauthenticated", "invalid api key")):
         return "invalid_credentials"
-    if code == 403:
+    if code == 403 or any(w in msg for w in ("403", "forbidden", "permission", "access denied", "was denied")):
         return "forbidden"
-    if code == 404:
+    if code == 404 or any(w in msg for w in ("404", "not found")):
         return "not_found"
-    if code == 429:
+    if code == 429 or any(w in msg for w in ("429", "rate limit", "too many requests")):
         return "rate_limited"
-    if code and code >= 500:
+    if (code and code >= 500) or any(w in msg for w in ("500 ", "502 ", "503 ", "504 ", "bad gateway", "service unavailable")):
         return "network_error"
-    if "authentication" in type(exc).__name__.lower():
-        return "invalid_credentials"
     if isinstance(exc, (TimeoutError, ConnectionError, OSError)) or any(
-        word in type(exc).__name__.lower() for word in ("timeout", "connection", "retry")):
+        word in name or word in msg for word in ("timeout", "timed out", "connection", "retry", "name or service not known", "temporary failure in name resolution")
+    ):
         return "network_error"
     return "unknown"
+
+
+def extract_kernel_ref(response):
+    raw_ref = str(getattr(response, "ref", "") or "").strip()
+    if raw_ref:
+        cleaned = raw_ref.strip("/")
+        if cleaned.lower().startswith("code/"):
+            cleaned = cleaned[5:].strip("/")
+        if cleaned:
+            return cleaned
+    raw_url = str(getattr(response, "url", "") or "").strip()
+    if "/code/" in raw_url:
+        tail = raw_url.split("/code/", 1)[1].split("?", 1)[0].split("#", 1)[0].strip("/")
+        parts = [p for p in tail.split("/") if p]
+        if len(parts) >= 2:
+            return f"{parts[0]}/{parts[1]}"
+    return ""
 
 
 def parse_log_progress(text):
@@ -90,10 +108,13 @@ def kaggle(request):
         if getattr(response, "error", None):
             return {"error": "provider_rejected", "data": {}}
         version = getattr(response, "version_number", None)
-        if not getattr(response, "ref", None):
+        if version is None:
+            version = getattr(response, "versionNumber", None)
+        actual_ref = extract_kernel_ref(response)
+        if not actual_ref:
             return {"error": "unknown", "data": {}}
-        if response.ref.lower() != ref.lower():
-            return {"error": "remote_ref_mismatch", "data": {"actual_ref": response.ref}}
+        if actual_ref.lower() != ref.lower():
+            return {"error": "remote_ref_mismatch", "data": {"actual_ref": actual_ref}}
         return {"data": {"accepted": True, "url": "https://www.kaggle.com/code/" + ref},
                 "remote_version": str(version) if version is not None else None}
     response = api.kernels_status(ref)
@@ -134,8 +155,10 @@ def kaggle(request):
         try:
             import requests
             owner, slug = ref.split("/")
+            headers = {"Authorization": f"Bearer {secret}"} if secret.startswith("KGAT_") else {}
+            auth = None if secret.startswith("KGAT_") else (request["principal"], secret)
             with requests.get("https://www.kaggle.com/api/v1/kernels/output", params={"userName": owner, "kernelSlug": slug},
-                              auth=(request["principal"], request["secret"]), timeout=10, stream=True) as response:
+                              headers=headers, auth=auth, timeout=10, stream=True) as response:
                 if response.status_code == 200:
                     body = bytearray()
                     for block in response.iter_content(8192):

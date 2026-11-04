@@ -481,6 +481,38 @@ class PortalTests(unittest.TestCase):
         self.assertEqual(caps["kaggle_logs"], "kernels_logs")
         self.assertEqual(caps["logs_follow"], "supported")
 
+    def test_kaggle_push_ref_normalization_and_error_classification(self):
+        from research_portal.provider_child import error_code, extract_kernel_ref
+
+        class FakePushResponse:
+            def __init__(self, ref="", url="", versionNumber=None):
+                self.ref = ref
+                self.url = url
+                self.versionNumber = versionNumber
+                self.error = None
+
+        self.assertEqual(extract_kernel_ref(FakePushResponse(ref="/code/owner/my-kernel")), "owner/my-kernel")
+        self.assertEqual(extract_kernel_ref(FakePushResponse(ref="", url="https://www.kaggle.com/code/owner/my-kernel")), "owner/my-kernel")
+        self.assertEqual(extract_kernel_ref(FakePushResponse(ref="owner/my-kernel")), "owner/my-kernel")
+
+        self.assertEqual(error_code(ValueError("Cannot access kernel 'o/k' (Permission 'kernels.get' was denied).")), "forbidden")
+        self.assertEqual(error_code(RuntimeError("401 Client Error: Unauthorized for url")), "invalid_credentials")
+        self.assertEqual(error_code(RuntimeError("404 Not Found")), "not_found")
+        self.assertEqual(error_code(RuntimeError("429 Too Many Requests: rate limit exceeded")), "rate_limited")
+
+    def test_build_cleans_up_temporary_workspace_and_bind_run_to_submitted_attempt(self):
+        p, options = self.preview()
+        self.assertEqual(list((self.store.root / "work").iterdir()), [])
+        op = self.service.request_submit(p["id"], options, "clean-submit")
+        self.run_all()
+        nb = self.store.notebooks()[0]
+        self.assertEqual(nb["attempt_id"], op)
+        self.assertEqual(nb["run_ref"], "")
+        w = self.account("tracking", "wandb")
+        rebound = self.store.attach(self.a["id"], nb["kernel"], w["id"], "team/project/run-1", attempt_id=op)
+        self.assertEqual(rebound, nb["id"])
+        self.assertEqual(self.store.notebook(nb["id"])["run_ref"], "team/project/run-1")
+
     def test_worker_cli_consumes_job_and_enforces_single_owner(self):
         op = self.service.test_connection(self.a["id"])
         env = dict(os.environ, RESEARCH_PORTAL_MODE="fixture", RESEARCH_PORTAL_RUNTIME=str(self.store.root),

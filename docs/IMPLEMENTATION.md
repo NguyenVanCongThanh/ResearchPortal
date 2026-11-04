@@ -29,9 +29,9 @@ Implementation follows PoC-first: one operator, session-based Streamlit and an e
 
 ## Offline verification in this workspace
 
-Executed with Python 3.11.16 and locally cached PyYAML 6.0.3: `python -m unittest discover -s tests -q` (48 passed, 2 Streamlit tests skipped). This includes actual generator/config compatibility for four task/resume combinations, isolated account subprocess contracts, a real session-worker process and exclusive-lock check, training-axis mapping/progress persistence, idempotency, ambiguous dispatch recovery and backup/restore.
+Executed with Python 3.11.16 in `.venv`: `python -m pytest -q` (60 passed, 0 failed, 0 skipped) and `python tools/verify_environment.py` (all checks passed, generated `requirements.lock`). This includes actual BHSD generator/config compatibility for four task/resume combinations against commit `e5b3cbf4479c575d088f9836a059055c7badd8d9`, isolated account subprocess contracts, FastAPI + in-process worker end-to-end workflows, path traversal and CORS hardening, Streamlit `AppTest` widget workflows, training-axis mapping/progress persistence, idempotency, ambiguous dispatch recovery and backup/restore.
 
-Compilation and Git whitespace checks also passed. Streamlit/pytest and provider SDKs are not installed in the dedicated environment because package downloads failed. No provider network request, notebook execution or live training was performed.
+No live provider submission or notebook execution on cloud GPUs was performed during automated testing.
 
 ## Submission safety and recovery
 

@@ -45,8 +45,10 @@ class Service:
             raise PortalError("Account disabled; build with an enabled account")
         if (account["revision"], account["credential_revision"]) != (preview["account_revision"], preview["credential_revision"]):
             raise Conflict("Account/credential changed after preview; build again")
-        if current_options is not None and digest(current_options) != digest(preview["options"]):
-            raise Conflict("Options changed after preview; build again")
+        if current_options is not None:
+            normalized_options = BuildOptions(**current_options).validate().payload()
+            if digest(normalized_options) != digest(preview["options"]):
+                raise Conflict("Options changed after preview; build again")
         if self.settings.mode == "live":
             if preview["manifest"]["source_revision"] != self.settings.revision or inventory_digest(self.settings) != preview["manifest"]["source_digest"]:
                 raise Conflict("BHSD source changed; build again")
@@ -54,14 +56,15 @@ class Service:
 
     def request_submit(self, preview_id, current_options, idem):
         preview = self.store.preview(preview_id)
+        normalized_options = BuildOptions(**current_options).validate().payload()
         payload = {"preview_id": preview_id, "bundle_digest": preview["manifest"]["bundle_digest"]}
         if self.store.rows("SELECT id FROM operations WHERE mode=? AND idem=?", (self.store.mode, idem)):
-            if digest(current_options) != digest(preview["options"]):
+            if digest(normalized_options) != digest(preview["options"]):
                 raise Conflict("Options differ from the original request")
             return self.store.enqueue("submit", payload, preview["account_id"], preview["manifest"]["kernel"], idem=idem)
         if self.settings.mode == "live" and not self.settings.allow_live_submit:
             raise PortalError("Live submit is disabled in settings")
-        account, _ = self.validate_preview(preview, current_options)
+        account, _ = self.validate_preview(preview, normalized_options)
         if self.settings.mode == "live" and hasattr(self.providers, "preflight"):
             self.providers.preflight("kaggle")
         return self.store.enqueue("submit", payload,

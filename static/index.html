@@ -39,7 +39,7 @@
           </div>
           <div>
             <span class="font-bold text-lg tracking-tight text-white">ResearchPortal</span>
-            <span class="text-xs text-slate-400 block -mt-1 font-mono">Kaggle & W&B Control Center</span>
+            <span class="text-xs text-slate-400 block -mt-1 font-mono">Kaggle &amp; W&amp;B Control Center</span>
           </div>
         </div>
 
@@ -89,12 +89,12 @@
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
           <h1 class="text-2xl font-bold text-white tracking-tight">Kaggle Notebooks Monitor</h1>
-          <p class="text-sm text-slate-400 mt-1">Real-time execution telemetry, live logs streaming & health tracking</p>
+          <p class="text-sm text-slate-400 mt-1">Distinct provider status, W&amp;B tracking heartbeat, iteration progress &amp; execution logs</p>
         </div>
         <div class="flex items-center space-x-3">
           <button onclick="fetchNotebooks(true)" class="btn-secondary">
             <svg class="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-            Refresh Data
+            Refresh Stored Results
           </button>
           <button onclick="toggleModal('modal-attach')" class="btn-primary">
             <svg class="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -133,17 +133,17 @@
     <section id="tab-submit" class="tab-content hidden space-y-6">
       <div class="pb-4 border-b border-slate-800">
         <h1 class="text-2xl font-bold text-white tracking-tight">Build → Safe Preview → Submit</h1>
-        <p class="text-sm text-slate-400 mt-1">Configure parameters, validate offline, inspect sanitized preview and push to Kaggle</p>
+        <p class="text-sm text-slate-400 mt-1">Mean Teacher only. Configure parameters, build offline, inspect sanitized preview and dispatch to Kaggle</p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Form Panel -->
-        <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+        <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4" onchange="checkPreviewOptionParity()" oninput="checkPreviewOptionParity()">
           <h2 class="text-lg font-semibold text-white">1. Submission Configuration</h2>
 
           <div>
             <label class="form-label">Target Kaggle Account</label>
-            <select id="submit-account" class="form-input"></select>
+            <select id="submit-account" onchange="fetchPreviews()" class="form-input"></select>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
@@ -174,16 +174,17 @@
           </div>
 
           <div>
-            <label class="form-label">Dataset Source Override (Optional)</label>
+            <label class="form-label">Dataset Source Override (Optional, one owner/slug)</label>
             <input type="text" id="submit-dataset" placeholder="owner/dataset-slug" class="form-input font-mono text-sm">
           </div>
 
           <div>
             <label class="form-label">Tracking Mode</label>
             <select id="submit-tracking" class="form-input">
-              <option value="offline">Offline (No live W&B push)</option>
+              <option value="offline">Offline (No live W&amp;B push)</option>
               <option value="kaggle_secrets">Kaggle Secrets (WANDB_API_KEY)</option>
             </select>
+            <p class="text-[11px] text-slate-500 mt-1">Kaggle Secrets mode requires <code class="text-slate-400">WANDB_API_KEY</code> attached on Kaggle. Portal W&amp;B connections are never embedded into notebooks.</p>
           </div>
 
           <!-- Resume Options -->
@@ -194,7 +195,7 @@
             </div>
             <div id="resume-fields" class="hidden space-y-3 pt-2">
               <div>
-                <label class="form-label text-xs">Resume Run Reference</label>
+                <label class="form-label text-xs">Resume Run Reference (Requires Kaggle Secrets tracking)</label>
                 <input type="text" id="submit-resume-run" placeholder="entity/project/run-id" class="form-input font-mono text-xs">
               </div>
               <div class="grid grid-cols-2 gap-2">
@@ -225,7 +226,7 @@
         <!-- Preview & Submit Panel -->
         <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
           <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-white">2. Verified Preview & Dispatch</h2>
+            <h2 class="text-lg font-semibold text-white">2. Verified Preview &amp; Dispatch</h2>
             <button onclick="fetchPreviews()" class="text-xs text-slate-400 hover:text-white flex items-center gap-1">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
               Reload Previews
@@ -240,24 +241,43 @@
           <div id="preview-details" class="hidden space-y-4">
             <div class="p-4 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono space-y-1.5 text-slate-300">
               <div><span class="text-slate-500">Preview ID:</span> <span id="prev-id" class="text-emerald-400"></span></div>
-              <div><span class="text-slate-500">Kernel:</span> <span id="prev-kernel" class="text-white font-semibold"></span></div>
-              <div><span class="text-slate-500">Bundle Digest:</span> <span id="prev-digest" class="text-amber-400 truncate"></span></div>
+              <div><span class="text-slate-500">Target Kernel:</span> <span id="prev-kernel" class="text-white font-semibold"></span></div>
+              <div><span class="text-slate-500">Dataset Sources:</span> <span id="prev-datasets" class="text-sky-300"></span></div>
+              <div><span class="text-slate-500">Source Revision:</span> <span id="prev-revision" class="text-slate-300"></span></div>
+              <div><span class="text-slate-500">Bundle Digest:</span> <span id="prev-digest" class="text-amber-400 break-all"></span></div>
               <div><span class="text-slate-500">Created At:</span> <span id="prev-created"></span></div>
             </div>
 
-            <div class="flex items-center space-x-3">
+            <div id="prev-warnings" class="hidden p-3 bg-amber-950/50 border border-amber-800 rounded-lg text-xs text-amber-200 space-y-1"></div>
+
+            <div id="prev-options-mismatch" class="hidden p-3 bg-rose-950/60 border border-rose-800 rounded-lg text-xs text-rose-200">
+              ⚠️ Current form options differ from this preview. Build a new preview or restore matching options before submitting.
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
               <button onclick="downloadPreviewZip()" class="btn-secondary text-xs">
                 <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Download Bundle ZIP
+                Download Safe Bundle ZIP
               </button>
+              <button onclick="togglePreviewNotebookCode()" class="btn-secondary text-xs">
+                Inspect Safe Notebook JSON
+              </button>
+            </div>
+
+            <div id="prev-notebook-container" class="hidden">
+              <pre id="prev-notebook-code" class="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] font-mono text-slate-300 max-h-64 overflow-y-auto whitespace-pre-wrap"></pre>
+            </div>
+
+            <div id="live-submit-disabled-banner" class="hidden p-3 bg-sky-950/50 border border-sky-800 rounded-lg text-xs text-sky-200">
+              ℹ️ Live submit is disabled in settings (<code class="font-mono">allow_live_submit = false</code>). Enable it in <code class="font-mono">config/settings.toml</code> only after reviewing the preview and offline checks.
             </div>
 
             <!-- Confirmation & Submit -->
             <div class="p-4 bg-emerald-950/30 border border-emerald-900/60 rounded-xl space-y-4">
               <div class="flex items-start space-x-3">
-                <input type="checkbox" id="submit-confirm" class="mt-1 rounded border-emerald-800 bg-slate-900 text-emerald-500 focus:ring-emerald-400">
+                <input type="checkbox" id="submit-confirm" onchange="updateDispatchButtonState()" class="mt-1 rounded border-emerald-800 bg-slate-900 text-emerald-500 focus:ring-emerald-400">
                 <label for="submit-confirm" class="text-xs text-emerald-200/90 leading-relaxed">
-                  I confirm that I have reviewed the target account, dataset sources, code revision and GPU options. This will dispatch execution to Kaggle.
+                  I reviewed the target account, dataset sources, source revision and GPU/tracking options.
                 </label>
               </div>
 
@@ -268,7 +288,7 @@
           </div>
 
           <div id="preview-empty" class="text-center py-16 text-slate-500 text-sm">
-            No completed preview selected. Configure on the left and click "Build Safe Preview".
+            No completed preview for this account. Configure on the left and click "Build Safe Preview".
           </div>
         </div>
       </div>
@@ -279,7 +299,7 @@
       <div class="flex items-center justify-between pb-4 border-b border-slate-800">
         <div>
           <h1 class="text-2xl font-bold text-white tracking-tight">Account Connections</h1>
-          <p class="text-sm text-slate-400 mt-1">Manage Kaggle (API Key) and Weights & Biases credentials with write-only isolation</p>
+          <p class="text-sm text-slate-400 mt-1">Manage Kaggle and Weights &amp; Biases credentials with write-only secret isolation</p>
         </div>
         <button onclick="openNewAccountModal()" class="btn-primary">
           <svg class="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -311,7 +331,7 @@
       <div class="flex items-center justify-between pb-4 border-b border-slate-800">
         <div>
           <h1 class="text-2xl font-bold text-white tracking-tight">Operation Ledger</h1>
-          <p class="text-sm text-slate-400 mt-1">Transactional task journal, dispatch fencing and operator reconciliation</p>
+          <p class="text-sm text-slate-400 mt-1">Accepted submission, notebook running and successful training are distinct outcomes</p>
         </div>
         <button onclick="fetchOperations()" class="btn-secondary">
           <svg class="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -342,13 +362,13 @@
           <input type="text" id="attach-kernel" placeholder="e.g. username/my-training-notebook" class="form-input font-mono text-sm">
         </div>
         <div>
-          <label class="form-label">W&B Connection (Optional)</label>
+          <label class="form-label">W&amp;B Connection (Optional)</label>
           <select id="attach-wandb-acc" class="form-input">
             <option value="">None (Monitor via Kaggle CLI Logs only)</option>
           </select>
         </div>
         <div>
-          <label class="form-label">W&B entity/project/run-id (Optional)</label>
+          <label class="form-label">W&amp;B entity/project/run-id (Optional)</label>
           <input type="text" id="attach-run" placeholder="e.g. my-team/medssl/abc12345" class="form-input font-mono text-sm">
         </div>
         <div class="flex items-center space-x-2">
@@ -378,7 +398,7 @@
             <label class="form-label">Provider</label>
             <select id="acc-provider" class="form-input">
               <option value="kaggle">Kaggle</option>
-              <option value="wandb">Weights & Biases</option>
+              <option value="wandb">Weights &amp; Biases</option>
             </select>
           </div>
           <div>
@@ -393,13 +413,17 @@
           </div>
           <div>
             <label class="form-label">Principal (Username / Entity)</label>
-            <input type="text" id="acc-principal" placeholder="Kaggle username or W&B team" class="form-input font-mono text-sm">
+            <input type="text" id="acc-principal" placeholder="Kaggle username or W&amp;B team" class="form-input font-mono text-sm">
           </div>
         </div>
         <div>
-          <label class="form-label">API Key / Token (Write-only, blank keeps existing)</label>
+          <label class="form-label">Description (Optional)</label>
+          <textarea id="acc-description" rows="2" placeholder="Notes on purpose or ownership" class="form-input text-sm"></textarea>
+        </div>
+        <div>
+          <label class="form-label">API Key / Token (Write-only, blank preserves existing)</label>
           <input type="password" id="acc-secret" placeholder="Enter key (never displayed after save)" class="form-input font-mono text-sm">
-          <p class="text-xs text-slate-500 mt-1">Stored securely outside Git. Secret fields are never returned to the browser.</p>
+          <p class="text-xs text-slate-500 mt-1">Stored securely outside Git (chmod 0600). Secret fields are never returned to the browser.</p>
         </div>
         <div class="flex items-center space-x-6 pt-2">
           <label class="flex items-center space-x-2 text-sm text-slate-300">
@@ -425,4 +449,3 @@
   <script src="/static/app.js"></script>
 </body>
 </html>
-

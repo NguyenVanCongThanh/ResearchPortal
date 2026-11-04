@@ -7,3 +7,4 @@ description = "Session-operated Streamlit portal for Kaggle and W&B"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]

@@ -8,7 +8,7 @@ stall_seconds = 1200
 
 [bhsd]
 checkout = "/home/u001015/BHSD_SSL"
-revision = "e6c6e81efd1966d110d11892913058f5d1023097"
+revision = "e5b3cbf4479c575d088f9836a059055c7badd8d9"
 
 [runtime]
 # Blank uses a private per-user temporary demo directory. For live, set a durable

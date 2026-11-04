@@ -6,8 +6,25 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = {"streamlit": "1.51.0", "kaggle": "1.7.4.5", "wandb": "0.26.1", "requests": "2.32.5",
-            "PyYAML": "6.0.3", "pytest": "8.4.2"}
+
+
+def load_expected_versions():
+    expected = {}
+    for req_name in ("requirements.txt", "requirements-dev.txt"):
+        req_path = ROOT / req_name
+        if not req_path.is_file():
+            continue
+        for raw_line in req_path.read_text().splitlines():
+            line = raw_line.split("#", 1)[0].strip()
+            if not line or line.startswith("-"):
+                continue
+            if "==" in line:
+                pkg, ver = line.split("==", 1)
+                expected[pkg.strip()] = ver.strip()
+    return expected
+
+
+EXPECTED = load_expected_versions()
 
 
 def main():

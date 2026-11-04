@@ -23,11 +23,18 @@ if [ "$1" == "--streamlit" ]; then
     WORKER_PID=$!
     trap 'kill $WORKER_PID 2>/dev/null || true; exit 0' SIGINT SIGTERM EXIT
     python -m streamlit run app.py --server.address=127.0.0.1 --server.port=8501
+elif [ "$1" == "--dev" ]; then
+    echo "=================================================="
+    echo "🚀 Khởi động ResearchPortal Web Service (Dev Reload Mode)"
+    echo "🌐 Truy cập Dashboard tại: http://$HOST:$PORT"
+    echo "📚 Swagger API Docs tại:   http://$HOST:$PORT/docs"
+    echo "=================================================="
+    exec python -m uvicorn server:app --host "$HOST" --port "$PORT" --reload
 else
     echo "=================================================="
     echo "🚀 Khởi động ResearchPortal Web Service (FastAPI + Modern Web UI)"
     echo "🌐 Truy cập Dashboard tại: http://$HOST:$PORT"
     echo "📚 Swagger API Docs tại:   http://$HOST:$PORT/docs"
     echo "=================================================="
-    exec python -m uvicorn server:app --host "$HOST" --port "$PORT" --reload
+    exec python -m uvicorn server:app --host "$HOST" --port "$PORT"
 fi

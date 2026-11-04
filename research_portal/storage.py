@@ -59,6 +59,8 @@ class Store:
             CREATE TABLE IF NOT EXISTS observations (
               id INTEGER PRIMARY KEY, notebook_id TEXT NOT NULL REFERENCES notebooks(id),
               source TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS obs_lookup
+              ON observations(notebook_id, source, id DESC);
             CREATE TABLE IF NOT EXISTS progress (
               notebook_id TEXT PRIMARY KEY REFERENCES notebooks(id), iteration REAL,
               sample_at TEXT, progress_at TEXT);
@@ -98,8 +100,13 @@ class Store:
             db.close()
 
     def rows(self, sql, args=()):
-        with self.tx() as db:
+        db = sqlite3.connect(self.path, timeout=10)
+        db.row_factory = sqlite3.Row
+        try:
+            db.execute("PRAGMA foreign_keys=ON")
             return [dict(row) for row in db.execute(sql, args)]
+        finally:
+            db.close()
 
     def audit(self, event, detail):
         with self.tx() as db:
@@ -226,6 +233,10 @@ class Store:
             old = db.execute("SELECT * FROM notebooks WHERE mode=? AND account_id=? AND kernel=? AND attempt_id IS ?",
                              (self.mode, account_id, kernel, attempt_id)).fetchone()
             if old:
+                if (old["wandb_account_id"], old["run_ref"]) == (None, "") and wandb_account_id and run_ref:
+                    db.execute("UPDATE notebooks SET wandb_account_id=?, run_ref=? WHERE id=?",
+                               (wandb_account_id, run_ref, old["id"]))
+                    return old["id"]
                 if old["wandb_account_id"] != wandb_account_id or old["run_ref"] != run_ref:
                     raise Conflict("Notebook already has a different tracking binding; attach as a new attempt")
                 return old["id"]
@@ -237,7 +248,7 @@ class Store:
         return self.rows("SELECT * FROM notebooks WHERE mode=? ORDER BY created_at DESC", (self.mode,))
 
     def notebook(self, notebook_id):
-        items = [n for n in self.notebooks() if n["id"] == notebook_id]
+        items = self.rows("SELECT * FROM notebooks WHERE id=? AND mode=?", (notebook_id, self.mode))
         if not items:
             raise PortalError("Notebook not found")
         return items[0]
@@ -334,7 +345,13 @@ class Store:
                        account["revision"], account["credential_revision"], canonical(options), canonical(manifest), now()))
 
     def previews(self):
-        return self.rows("SELECT * FROM previews WHERE mode=? ORDER BY created_at DESC", (self.mode,))
+        rows = self.rows("SELECT * FROM previews WHERE mode=? ORDER BY created_at DESC", (self.mode,))
+        for row in rows:
+            if isinstance(row.get("options"), str):
+                row["options"] = json.loads(row["options"])
+            if isinstance(row.get("manifest"), str):
+                row["manifest"] = json.loads(row["manifest"])
+        return rows
 
     def preview(self, preview_id):
         rows = self.rows("SELECT * FROM previews WHERE id=? AND mode=?", (preview_id, self.mode))

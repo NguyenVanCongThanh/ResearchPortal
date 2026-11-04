@@ -104,7 +104,7 @@ def monitor_ui(settings, store, service):
                 version = result.get("provider", {}).get("remote_version") or result.get("remote_version")
                 st.caption("Submitted version: " + (str(version) if version else "unverified") + "; status below refers to latest slug/version unless verified separately.")
             if st.button("Check now", key="check_" + notebook["id"]):
-                ids = guard(lambda: service.check(notebook["id"]))
+                ids = guard(lambda nb_id=notebook["id"]: service.check(nb_id))
                 if ids:
                     st.success("Requested; queued/recent operations are reused. Refresh stored results after the worker completes.")
                 else:
@@ -212,7 +212,8 @@ def operations_ui(store, service):
             if op["kind"] == "submit" and op["state"] in ("unknown", "reconciling"):
                 st.warning("Do not retry push. Inspect the remote version and record evidence before releasing this target.")
                 if st.button("Read remote reconciliation evidence", key="reconcile_" + op["id"]):
-                    guard(lambda: store.enqueue("reconcile", {"operation_id": op["id"]}, op["account_id"], op["target"], cooldown=10))
+                    guard(lambda current_op=op: store.enqueue("reconcile", {"operation_id": current_op["id"]},
+                                                              current_op["account_id"], current_op["target"], cooldown=10))
                 with st.form("resolve_" + op["id"]):
                     accepted = st.selectbox("Operator finding", ["accepted", "not_sent"], key="finding_" + op["id"])
                     version = st.text_input("Observed remote version", key="version_" + op["id"])
@@ -220,7 +221,8 @@ def operations_ui(store, service):
                     verified = st.checkbox("I checked the remote version against this preview", key="verified_" + op["id"])
                     resolve = st.form_submit_button("Record operator resolution", disabled=not verified)
                 if resolve:
-                    guard(lambda: service.resolve_unknown(op["id"], accepted == "accepted", evidence, version))
+                    guard(lambda op_id=op["id"], acc=accepted, ev=evidence, ver=version:
+                          service.resolve_unknown(op_id, acc == "accepted", ev, ver))
 
 
 def main():

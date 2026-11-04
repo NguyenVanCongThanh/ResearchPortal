@@ -1,6 +1,6 @@
 # ResearchPortal
 
-Portal cá nhân theo phiên cho Kaggle/W&B, dùng **Streamlit + Python worker**. Đã có luồng fixture Accounts → Monitor → Build preview → Submit mô phỏng, cùng adapter live và operation ledger. Training vẫn thuộc checkout BHSD độc lập.
+Portal cá nhân theo phiên cho Kaggle/W&B, hỗ trợ cả **FastAPI + Web UI** (`server.py` / `./run.sh`) và **Streamlit + Python worker** (`app.py` / `./run.sh --streamlit`). Đã có luồng fixture Accounts → Monitor → Build preview → Submit mô phỏng, cùng adapter live và operation ledger. Training vẫn thuộc checkout BHSD độc lập.
 
 **Trạng thái kiểm chứng:** xem [implementation status](docs/IMPLEMENTATION.md). Kiểm thử offline không chứng minh tương thích online. Live submit mặc định tắt; bản này chưa nghiệm thu vận hành online.
 
@@ -12,17 +12,27 @@ Dùng Python 3.11 trong môi trường riêng, không cài requirements training
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
-python -m streamlit run app.py
+./run.sh
 ```
 
-Ở terminal thứ hai, cùng môi trường và cấu hình:
+Mặc định `./run.sh` chạy **FastAPI + Web UI** (kèm in-process worker giữ `worker.lock`) tại `http://127.0.0.1:8080` (Swagger API tại `http://127.0.0.1:8080/docs`).
+
+Để chạy chế độ **Streamlit** (`http://127.0.0.1:8501`):
+
+```bash
+./run.sh --streamlit
+```
+
+Hoặc chạy thủ công Streamlit và worker ở hai terminal:
 
 ```bash
 source .venv/bin/activate
+python -m streamlit run app.py
+# Ở terminal thứ hai:
 python -m research_portal.worker
 ```
 
-Mở `http://127.0.0.1:8501`. Mặc định **fixture**, có hai connection demo và một notebook. Bấm **Check now**, đợi worker rồi **Refresh stored results**. Có thể build và submit mô phỏng không cần credential/network/GPU. Slug demo `queued`, `complete`, `failed`, `network-error`, `forbidden`, `rate-limited` chọn các tình huống tương ứng.
+Mặc định **fixture**, có hai connection demo và một notebook. Bấm **Check now**, đợi worker rồi **Refresh stored results**. Có thể build và submit mô phỏng không cần credential/network/GPU. Slug demo `queued`, `complete`, `failed`, `network-error`, `forbidden`, `rate-limited` chọn các tình huống tương ứng.
 
 UI không gọi provider khi render. Worker chỉ xử lý thao tác đã enqueue; không tự polling provider. Ctrl+C dừng worker/UI. Khi worker dừng, UI vẫn đọc cache; không có cam kết đồng bộ sau khi kết thúc phiên.
 
@@ -48,7 +58,7 @@ python -m research_portal.maintenance doctor
 python tools/verify_environment.py
 ```
 
-Script cuối kiểm tra đúng phiên bản, `pip check`, chạy tests rồi mới tạo `requirements.lock` chứa toàn bộ phiên bản đã cài. Trong môi trường hiện tại chưa tải được Streamlit/pytest do DNS/network, vì vậy chưa có lockfile đã kiểm chứng và AppTest chưa chạy. Sau khi có lock, dùng `python -m pip install -r requirements.lock` để tái lập môi trường.
+Script cuối kiểm tra đúng phiên bản, `pip check`, chạy toàn bộ 60 tests (`pytest -q`, gồm cả API tests và Streamlit `AppTest`) rồi tạo `requirements.lock` chứa toàn bộ phiên bản đã cài. Sau khi có lock, dùng `python -m pip install -r requirements.lock` để tái lập môi trường.
 
 Kiểm thử lõi khi chưa có pytest: `python -m unittest discover -s tests -v`. AppTest được đánh dấu skip nếu chưa có Streamlit. Test source BHSD chạy offline khi checkout/PyYAML có sẵn, không thực thi notebook/training.
 

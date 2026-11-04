@@ -1,5 +1,9 @@
 /* Custom component styles for ResearchPortal Modern Dashboard */
 
+.hidden {
+  display: none !important;
+}
+
 .nav-btn {
   display: inline-flex;
   align-items: center;
@@ -84,6 +88,10 @@
   outline: none;
   border-color: #22c55e;
   box-shadow: 0 0 0 1px #22c55e;
+}
+.form-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .stat-card {
