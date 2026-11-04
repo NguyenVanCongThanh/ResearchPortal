@@ -16,13 +16,10 @@ PORT="${PORT:-8080}"
 HOST="${HOST:-127.0.0.1}"
 
 if [ "$1" == "--streamlit" ]; then
-    echo "=================================================="
-    echo "🚀 Đang khởi động ResearchPortal (Chế độ Streamlit cũ)..."
-    echo "=================================================="
-    python -m research_portal.worker &
-    WORKER_PID=$!
-    trap 'kill $WORKER_PID 2>/dev/null || true; exit 0' SIGINT SIGTERM EXIT
-    python -m streamlit run app.py --server.address=127.0.0.1 --server.port=8501
+    echo "⚠️  Chế độ Streamlit cũ đã được loại bỏ."
+    echo "💡 ResearchPortal hiện sử dụng FastAPI + Modern React Web UI."
+    echo "👉 Vui lòng chạy './run.sh' hoặc 'make run' để truy cập Dashboard tại http://$HOST:$PORT"
+    exit 1
 elif [ "$1" == "--frontend-dev" ]; then
     echo "=================================================="
     echo "🚀 Khởi động Frontend Dev Server (Vite + React HMR)"

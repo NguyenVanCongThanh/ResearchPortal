@@ -4,20 +4,18 @@
 
 ResearchPortal is an operator-focused control plane and session manager designed for Kaggle notebooks and Weights & Biases telemetry tracking. It serves as an isolated bridge between local research workflows (e.g., BHSD) and remote execution providers.
 
-The platform provides dual interfaces sharing the same persistent storage and operation ledger:
-1. **Primary Interface:** Modern SPA built on **React 19 + TypeScript + TailwindCSS** served via **FastAPI** (`server.py` or `./run.sh`).
-2. **Fallback / PoC Profile:** **Streamlit** dashboard (`app.py` or `./run.sh --streamlit`) with out-of-process worker.
+The platform provides a modern single-page application (SPA) built on **React 19 + TypeScript + TailwindCSS** served via **FastAPI** (`server.py` or `./run.sh`).
 
 ```
 +-------------------------------------------------------------------------+
 |                              Client Layer                               |
-|   +------------------------------------+   +------------------------+   |
-|   |  React 19 SPA (Vite / TailwindCSS) |   |  Streamlit Dashboard   |   |
-|   |  http://127.0.0.1:8080             |   |  http://127.0.0.1:8501 |   |
-|   +-----------------+------------------+   +-----------+------------+   |
-+---------------------|----------------------------------|----------------+
-                      | REST API (/api/*)                | In-memory
-+---------------------v----------------------------------v----------------+
+|   +-----------------------------------------------------------------+   |
+|   |  React 19 SPA (Vite / TailwindCSS / Lucide / TanStack Query)   |   |
+|   |  http://127.0.0.1:8080                                          |   |
+|   +--------------------------------+--------------------------------+   |
++------------------------------------|------------------------------------+
+                                     | REST API (/api/*)
++------------------------------------v------------------------------------+
 |                              Service Layer                              |
 |   FastAPI Application Factory (`research_portal.web / api.py`)           |
 |     ├── routes/system.py       (Status & capabilities)                  |

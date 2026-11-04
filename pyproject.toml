@@ -2,7 +2,7 @@
 name = "research-portal"
 version = "0.2.0"
 requires-python = ">=3.11"
-description = "ML Research Management & Control Plane for Kaggle and W&B (FastAPI, React 19, Streamlit)"
+description = "ML Research Management & Control Plane for Kaggle and W&B (FastAPI, React 19)"
 readme = "README.md"
 license = { text = "Proprietary" }
 

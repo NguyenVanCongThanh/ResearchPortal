@@ -21,7 +21,7 @@ def isolated_env(home):
 
 def capabilities():
     versions = {}
-    for name in ("kaggle", "wandb", "streamlit"):
+    for name in ("kaggle", "wandb"):
         try:
             versions[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:

@@ -1,4 +1,4 @@
-"""One-shot SDK boundary. Invoked by worker only, never by Streamlit rendering."""
+"""One-shot SDK boundary. Invoked by worker only, never during web request rendering."""
 from contextlib import redirect_stdout, redirect_stderr
 import io
 import json
