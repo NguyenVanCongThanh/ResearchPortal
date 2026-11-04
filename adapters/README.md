@@ -1,1 +1,0 @@
-Adapters live in `research_portal/providers.py`, `provider_child.py`, `builder.py` and `build_child.py`. This seed directory is a documentation pointer; no legacy secret profiles or training dependencies are copied here. See `../docs/IMPLEMENTATION.md` for validation boundaries.
