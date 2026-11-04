@@ -21,3 +21,8 @@ frontend/dist/
 frontend/*.tsbuildinfo
 .npm/
 
+# Agent local tooling & skills
+.agent/
+.agents/
+
+
