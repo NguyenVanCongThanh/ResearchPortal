@@ -83,9 +83,12 @@ Backup gồm SQLite, credentials đang được tham chiếu và preview bundles
 
 ## Cấu trúc và tài liệu
 
-- `app.py`: UI; `research_portal/`: workflows, storage, worker, providers và BHSD bridge.
+- `Makefile`: Quản trị dòng lệnh tiện ích (`make run`, `make dev`, `make test`, `make build-frontend`, `make doctor`, `make verify`).
+- `server.py`: FastAPI application entrypoint; `app.py`: Streamlit fallback UI.
+- `frontend/`: Ứng dụng Web UI (React 19 + TypeScript + TailwindCSS); `static/`: Production build artifacts.
+- `research_portal/`: Logic lõi, routes API modular (`routes/`), worker, storage, providers và BHSD bridge.
 - `tests/`: synthetic contracts và Streamlit AppTest; `tools/`: kiểm chứng môi trường.
-- `config/`: settings mẫu; `docs/design/`: đặc tả; `docs/reference/bhsd/`: snapshot hướng dẫn training.
+- `config/`: settings mẫu; `docs/design/`: đặc tả ban đầu; `docs/architecture/`: [kiến trúc chi tiết v2.0](docs/architecture/current-architecture.md).
 - [PoC-first](docs/design/poc-first.md), [Kaggle operations](docs/design/kaggle-operations-spec.md), [provider capabilities](docs/design/provider-capabilities.md).
 
 `docs/source-manifest.json` và `docs/seed-checksums.json` ghi nguồn **seed ban đầu**, không phải checksums của implementation hiện tại. `AGENTS.md` được giữ nguyên. Chỉ bind loopback; truy cập HPC qua cơ chế đơn vị cho phép. Không có public hosting, application login hay quyền chạy daemon thường trực được cấp kèm repo này.

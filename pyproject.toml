@@ -1,10 +1,23 @@
 [project]
 name = "research-portal"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.11"
-description = "Session-operated Streamlit portal for Kaggle and W&B"
+description = "ML Research Management & Control Plane for Kaggle and W&B (FastAPI, React 19, Streamlit)"
+readme = "README.md"
+license = { text = "Proprietary" }
+
+[project.scripts]
+research-portal = "research_portal.__main__:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
