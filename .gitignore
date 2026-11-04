@@ -6,9 +6,20 @@ __pycache__/
 !.env.example
 .streamlit/secrets.toml
 config/settings.toml
+# Runtime, logs & secrets
 runtime/
 secrets/
 *.log
 *.sqlite*
 *.db
 .pytest_cache/
+.ruff_cache/
+
+# Node.js & Frontend build artifacts
+node_modules/
+**/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+static/assets/
+.npm/
+

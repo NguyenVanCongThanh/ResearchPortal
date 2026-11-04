@@ -23,6 +23,24 @@ if [ "$1" == "--streamlit" ]; then
     WORKER_PID=$!
     trap 'kill $WORKER_PID 2>/dev/null || true; exit 0' SIGINT SIGTERM EXIT
     python -m streamlit run app.py --server.address=127.0.0.1 --server.port=8501
+elif [ "$1" == "--frontend-dev" ]; then
+    echo "=================================================="
+    echo "🚀 Khởi động Frontend Dev Server (Vite + React HMR)"
+    echo "🌐 Truy cập Dev UI tại: http://localhost:3000"
+    echo "🔗 Proxy sang API:     http://127.0.0.1:8080"
+    echo "=================================================="
+    export PATH="$HOME/.local/nodejs/bin:$PATH"
+    cd "$REPO_DIR/frontend"
+    exec npm run dev
+elif [ "$1" == "--build-frontend" ]; then
+    echo "=================================================="
+    echo "📦 Đang build Frontend React 19 sang thư mục static/..."
+    echo "=================================================="
+    export PATH="$HOME/.local/nodejs/bin:$PATH"
+    cd "$REPO_DIR/frontend"
+    npm run build
+    echo "✅ Build hoàn tất!"
+    exit 0
 elif [ "$1" == "--dev" ]; then
     echo "=================================================="
     echo "🚀 Khởi động ResearchPortal Web Service (Dev Reload Mode)"
