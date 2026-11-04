@@ -117,29 +117,28 @@ def import_accounts():
         kaggle_acc_map[str(acc_id)] = saved
         print(f"Saved Kaggle account: {saved['name']} ({username}) [ID: {saved['id']}]")
 
-    # 3. Import notebooks from notebooks.json
+    # 3. Import notebooks from notebooks.json across configured Kaggle accounts
     notebooks_file = bhsd_root / "configs" / "kaggle" / "notebooks.json"
     if notebooks_file.is_file() and kaggle_acc_map:
         nb_data = json.loads(notebooks_file.read_text()).get("notebooks", {})
-        default_kaggle = kaggle_acc_map.get(default_acc_id) or next(iter(kaggle_acc_map.values()))
         attached_kernels = {n["kernel"] for n in store.notebooks()}
 
-        for nb_key, nb_info in nb_data.items():
-            slug = nb_info.get("slug")
-            if not slug:
-                continue
-            kernel_ref = f"{default_kaggle['principal']}/{slug}"
-            wandb_project = "BHSD_MeanTeacher" if nb_key == "mean_teacher" else "PICK_BHSD"
-            if kernel_ref not in attached_kernels:
-                store.attach(
-                    account_id=default_kaggle["id"],
-                    kernel=kernel_ref,
-                    wandb_account_id=wandb_account_id,
-                    run_ref=f"{wandb_principal}/{wandb_project}/{slug}" if wandb_account_id else "",
-                )
-                print(f"Attached notebook: {kernel_ref}")
-            else:
-                print(f"Notebook already attached: {kernel_ref}")
+        for k_acc in kaggle_acc_map.values():
+            for nb_key, nb_info in nb_data.items():
+                slug = nb_info.get("slug")
+                if not slug:
+                    continue
+                if k_acc["slug"] != "thanh" and nb_key != "mean_teacher":
+                    continue
+                kernel_ref = f"{k_acc['principal']}/{slug}"
+                if kernel_ref not in attached_kernels:
+                    store.attach(
+                        account_id=k_acc["id"],
+                        kernel=kernel_ref,
+                    )
+                    print(f"Attached notebook: {kernel_ref}")
+                else:
+                    print(f"Notebook already attached: {kernel_ref}")
 
     print("\n✅ Hoàn tất import tài khoản vào Store LIVE của ResearchPortal!")
     print(f"Vị trí cơ sở dữ liệu: {settings.runtime / 'portal.sqlite3'}")
