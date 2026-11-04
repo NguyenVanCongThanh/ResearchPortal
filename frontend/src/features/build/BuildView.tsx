@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Play, Download, AlertTriangle, Layers, Cpu } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Account, BuildPreview, SystemStatus } from '../../types';
+import { useToast } from '../../components/Toast';
+import { Modal } from '../../components/Modal';
 
 interface BuildViewProps {
   accounts: Account[];
@@ -11,6 +13,7 @@ interface BuildViewProps {
 
 export const BuildView: React.FC<BuildViewProps> = ({ accounts, status }) => {
   const queryClient = useQueryClient();
+  const { showSuccess, showError, showInfo } = useToast();
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [selectedPreview, setSelectedPreview] = useState<BuildPreview | null>(null);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
@@ -36,33 +39,33 @@ export const BuildView: React.FC<BuildViewProps> = ({ accounts, status }) => {
   // Build Mutation
   const buildMutation = useMutation({
     mutationFn: (payload: { account_id: string; options: any }) => api.requestBuild(payload),
-    onSuccess: () => {
-      alert('Build operation enqueued. Background worker is generating preview bundle.');
+    onSuccess: (data) => {
+      showInfo('Build enqueued', `Operation #${data?.operation_id?.slice(0, 8) || 'active'} enqueued. Generating preview.`);
       queryClient.invalidateQueries({ queryKey: ['previews'] });
       queryClient.invalidateQueries({ queryKey: ['operations'] });
     },
     onError: (err: any) => {
-      alert(`Build request failed: ${err.message}`);
+      showError('Build request failed', err?.message || 'Could not queue build preview.');
     },
   });
 
   // Submit Mutation
   const submitMutation = useMutation({
     mutationFn: (payload: { preview_id: string; options: any }) => api.requestSubmit(payload),
-    onSuccess: () => {
+    onSuccess: (data) => {
       setConfirmSubmitOpen(false);
-      alert('Submit operation enqueued successfully. Check Operations tab for progress.');
+      showSuccess('Submit enqueued', `Operation #${data?.operation_id?.slice(0, 8) || 'submit'} dispatched. Check Operations tab.`);
       queryClient.invalidateQueries({ queryKey: ['operations'] });
     },
     onError: (err: any) => {
-      alert(`Submit request failed: ${err.message}`);
+      showError('Submit request failed', err?.message || 'Could not dispatch submit.');
     },
   });
 
   const handleBuild = () => {
     const accId = selectedAccountId || (kaggleAccounts[0]?.id ?? '');
     if (!accId) {
-      alert('Please select or configure a Kaggle account first.');
+      showError('Missing account', 'Please select or configure a Kaggle account first.');
       return;
     }
 
@@ -261,48 +264,69 @@ export const BuildView: React.FC<BuildViewProps> = ({ accounts, status }) => {
       </div>
 
       {/* Submit Confirmation Modal */}
-      {confirmSubmitOpen && selectedPreview && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" /> Confirm Kaggle Submission
-            </h3>
-
+      <Modal
+        isOpen={confirmSubmitOpen && Boolean(selectedPreview)}
+        onClose={() => setConfirmSubmitOpen(false)}
+        title="Confirm Kaggle Submission"
+        description="Verify dataset references, GPU accelerator quota, and secrets before dispatching."
+        icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}
+        maxWidth="lg"
+      >
+        {selectedPreview && (
+          <div className="space-y-4 text-xs">
             {!status?.allow_live_submit && (
               <div className="p-3 rounded-lg bg-amber-950/60 border border-amber-800 text-xs text-amber-300 space-y-1">
                 <strong>Notice:</strong> <code>allow_live_submit</code> is currently <code>false</code> in settings. This submit will run in simulated mode or will be rejected if live mode is enforced.
               </div>
             )}
 
-            <div className="space-y-2 text-xs bg-slate-950 p-4 rounded-lg border border-slate-800 font-mono text-slate-300">
-              <div>Preview ID: <span className="text-indigo-400">{selectedPreview.id}</span></div>
-              <div>Kernel Slug: <span className="text-white">{selectedPreview.manifest?.kernel_slug}</span></div>
-              <div>Task: <span className="text-white">{selectedPreview.options?.task}</span></div>
-              <div>Epochs: <span className="text-white">{selectedPreview.options?.epochs}</span> · LR: {selectedPreview.options?.lr}</div>
+            <div className="space-y-2 bg-slate-950 p-4 rounded-lg border border-slate-800 font-mono text-slate-300">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Preview Bundle ID:</span>
+                <span className="text-indigo-400 font-bold">{selectedPreview.id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Target Kernel:</span>
+                <span className="text-white font-bold">{selectedPreview.manifest?.kernel_slug}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Task Type:</span>
+                <span className="text-white uppercase">{selectedPreview.options?.task}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Epochs / LR:</span>
+                <span className="text-white">{selectedPreview.options?.epochs} epochs · lr {selectedPreview.options?.lr}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Mean Teacher Alpha:</span>
+                <span className="text-white">{selectedPreview.options?.mean_teacher_alpha}</span>
+              </div>
             </div>
 
-            <p className="text-xs text-slate-400">
-              Please double check that remote datasets, GPU quotas and Kaggle secrets (WANDB_API_KEY) are configured before proceeding.
+            <p className="text-slate-400 leading-relaxed">
+              Dispatching writes an immutable operation to the idempotency ledger and fences the target kernel against concurrent execution.
             </p>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/80">
               <button
+                type="button"
                 onClick={() => setConfirmSubmitOpen(false)}
-                className="px-3 py-1.5 text-xs rounded bg-slate-800 text-slate-300 hover:bg-slate-700"
+                className="px-3.5 py-2 text-xs rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => submitMutation.mutate({ preview_id: selectedPreview.id, options: selectedPreview.options })}
                 disabled={submitMutation.isPending}
-                className="px-4 py-1.5 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 transition shadow-sm"
               >
                 {submitMutation.isPending ? 'Submitting...' : 'Confirm & Dispatch Submit'}
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };

@@ -3,28 +3,36 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --color-void: #070b14;
+    --color-surface: #0d1527;
+    --color-overlay: #151f32;
+    --color-border: #1e293b;
+    --color-border-bright: #334155;
+  }
+
   body {
-    background-color: #030712;
+    background-color: var(--color-void);
     color: #f3f4f6;
   }
 }
 
-/* Custom terminal window styling */
+/* Custom terminal window styling unified with portal tokens */
 .terminal-window {
-  background-color: #030712;
-  border: 1px solid #1f2937;
+  background-color: var(--color-void);
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   overflow: hidden;
   font-family: 'JetBrains Mono', monospace;
 }
 
 .terminal-header {
-  background-color: #0b1324;
+  background-color: var(--color-surface);
   padding: 0.5rem 0.75rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .terminal-body {
@@ -44,13 +52,13 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #030712;
+  background: var(--color-void);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1f2937;
+  background: var(--color-border);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+  background: var(--color-border-bright);
 }
 

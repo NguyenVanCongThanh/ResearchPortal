@@ -113,11 +113,11 @@ export const NotebookCard: React.FC<NotebookCardProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0">
           <button
             onClick={() => onCheck(nb.id)}
             disabled={isChecking}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm disabled:opacity-50 transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm disabled:opacity-50 transition active:scale-[0.98]"
           >
             <Play className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin' : ''}`} />
             {isChecking ? 'Checking...' : 'Check Now'}
@@ -126,18 +126,18 @@ export const NotebookCard: React.FC<NotebookCardProps> = ({
             href={`https://www.kaggle.com/code/${nb.kernel}`}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-[0.98]"
           >
-            Kaggle <ExternalLink className="w-3 h-3" />
+            Kaggle <ExternalLink className="w-3.5 h-3.5" />
           </a>
           {nb.run_ref && (
             <a
               href={`https://wandb.ai/${nb.run_ref}`}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+              className="flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-[0.98]"
             >
-              W&B <ExternalLink className="w-3 h-3" />
+              W&B <ExternalLink className="w-3.5 h-3.5" />
             </a>
           )}
         </div>

@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, CheckCircle2, AlertCircle, Plus, ShieldCheck } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Account } from '../../types';
+import { useToast } from '../../components/Toast';
+import { Modal } from '../../components/Modal';
 
 interface AccountsViewProps {
   accounts: Account[];
@@ -10,6 +12,7 @@ interface AccountsViewProps {
 
 export const AccountsView: React.FC<AccountsViewProps> = ({ accounts }) => {
   const queryClient = useQueryClient();
+  const { showSuccess, showError, showInfo } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [testingIds, setTestingIds] = useState<Record<string, boolean>>({});
 
@@ -27,18 +30,18 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts }) => {
     mutationFn: (accountId: string) => api.testAccount(accountId),
     onSuccess: (_, accountId) => {
       setTestingIds(prev => ({ ...prev, [accountId]: false }));
-      alert('Connection test enqueued. Results will update shortly.');
+      showInfo('Connection test enqueued', 'Verification results will update shortly.');
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
     onError: (err: any, accountId) => {
       setTestingIds(prev => ({ ...prev, [accountId]: false }));
-      alert(`Test request failed: ${err.message}`);
+      showError('Test request failed', err?.message || 'Could not verify connection.');
     },
   });
 
   const saveMutation = useMutation({
     mutationFn: api.saveAccount,
-    onSuccess: () => {
+    onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       setIsModalOpen(false);
       setForm({
@@ -50,9 +53,10 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts }) => {
         description: '',
         is_default: false,
       });
+      showSuccess('Account saved', `Credentials for ${saved?.account?.name || form.name || 'account'} stored securely.`);
     },
     onError: (err: any) => {
-      alert(`Save failed: ${err.message}`);
+      showError('Save failed', err?.message || 'Failed to save account credentials.');
     },
   });
 
@@ -143,110 +147,141 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts }) => {
       </div>
 
       {/* Add Account Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-indigo-400" /> New Connection
-            </h3>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Provider</label>
-                <select
-                  value={form.provider}
-                  onChange={e => setForm({ ...form, provider: e.target.value as any })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200"
-                >
-                  <option value="kaggle">Kaggle (Legacy API Key)</option>
-                  <option value="wandb">Weights & Biases (W&B API Key)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">Display Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. My Kaggle Account"
-                  value={form.name}
-                  onChange={e => setForm({ ...form, name: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">Identifier Slug (unique)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. kaggle-prod"
-                  value={form.slug}
-                  onChange={e => setForm({ ...form, slug: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 font-mono text-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">Principal (Username or Entity)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. bokhnhl"
-                  value={form.principal}
-                  onChange={e => setForm({ ...form, principal: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 font-mono text-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">API Key / Token (stored isolated outside git)</label>
-                <input
-                  type="password"
-                  placeholder="Enter API Key"
-                  value={form.secret}
-                  onChange={e => setForm({ ...form, secret: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 font-mono text-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">Description (optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Primary team training account"
-                  value={form.description}
-                  onChange={e => setForm({ ...form, description: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="is_default"
-                  checked={form.is_default}
-                  onChange={e => setForm({ ...form, is_default: e.target.checked })}
-                  className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0"
-                />
-                <label htmlFor="is_default" className="text-slate-300">Set as default connection</label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="px-3 py-1.5 text-xs rounded bg-slate-800 text-slate-300 hover:bg-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => saveMutation.mutate(form)}
-                disabled={!form.name || !form.principal || saveMutation.isPending}
-                className="px-4 py-1.5 text-xs font-semibold rounded bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
-              >
-                {saveMutation.isPending ? 'Saving...' : 'Save Connection'}
-              </button>
-            </div>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="New Connection Profile"
+        description="Credentials are kept in encrypted runtime storage outside Git and never exposed in source control."
+        icon={<KeyRound className="w-4 h-4 text-indigo-400" />}
+        maxWidth="md"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (form.name && form.principal) {
+              saveMutation.mutate(form);
+            }
+          }}
+          className="space-y-3.5 text-xs"
+        >
+          <div>
+            <label htmlFor="acc-provider" className="block text-slate-300 font-medium mb-1">
+              Platform Provider <span className="text-rose-400">*</span>
+            </label>
+            <select
+              id="acc-provider"
+              value={form.provider}
+              onChange={e => setForm({ ...form, provider: e.target.value as any })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="kaggle">Kaggle (Legacy Username & API Key)</option>
+              <option value="wandb">Weights & Biases (W&B API Key)</option>
+            </select>
           </div>
-        </div>
-      )}
+
+          <div>
+            <label htmlFor="acc-name" className="block text-slate-300 font-medium mb-1">
+              Display Name <span className="text-rose-400">*</span>
+            </label>
+            <input
+              id="acc-name"
+              type="text"
+              placeholder="e.g. Primary Kaggle Account"
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="acc-slug" className="block text-slate-300 font-medium mb-1">
+              Identifier Slug <span className="text-slate-500 text-[11px]">(system handle, e.g. kaggle-prod)</span>
+            </label>
+            <input
+              id="acc-slug"
+              type="text"
+              placeholder="kaggle-prod"
+              value={form.slug}
+              onChange={e => setForm({ ...form, slug: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="acc-principal" className="block text-slate-300 font-medium mb-1">
+              Principal Identity <span className="text-rose-400">*</span>
+            </label>
+            <input
+              id="acc-principal"
+              type="text"
+              placeholder={form.provider === 'kaggle' ? 'Kaggle Username (e.g. bokhnhl)' : 'W&B Username or Team Entity'}
+              value={form.principal}
+              onChange={e => setForm({ ...form, principal: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="acc-secret" className="block text-slate-300 font-medium mb-1">
+              API Token / Key <span className="text-slate-500 text-[11px]">(stored encrypted outside Git)</span>
+            </label>
+            <input
+              id="acc-secret"
+              type="password"
+              placeholder={form.provider === 'kaggle' ? 'Paste Kaggle API token key' : 'Paste W&B API Key'}
+              value={form.secret}
+              onChange={e => setForm({ ...form, secret: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="acc-desc" className="block text-slate-300 font-medium mb-1">
+              Description <span className="text-slate-500 text-[11px]">(optional context)</span>
+            </label>
+            <input
+              id="acc-desc"
+              type="text"
+              placeholder="e.g. Primary team training quota account"
+              value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="is_default"
+              checked={form.is_default}
+              onChange={e => setForm({ ...form, is_default: e.target.checked })}
+              className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
+            />
+            <label htmlFor="is_default" className="text-slate-300 cursor-pointer">
+              Set as default connection for this provider
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/80">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-3.5 py-2 text-xs rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!form.name || !form.principal || saveMutation.isPending}
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 transition"
+            >
+              {saveMutation.isPending ? 'Saving...' : 'Save Connection'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

@@ -4,6 +4,8 @@ import { Radio, Plus } from 'lucide-react';
 import { api } from '../../lib/api';
 import { NotebookCard } from '../../components/NotebookCard';
 import { Account, Notebook } from '../../types';
+import { useToast } from '../../components/Toast';
+import { Modal } from '../../components/Modal';
 
 interface MonitorViewProps {
   notebooks: Notebook[];
@@ -17,6 +19,7 @@ export const MonitorView: React.FC<MonitorViewProps> = ({
   isFetchingNotebooks: _isFetchingNotebooks,
 }) => {
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useToast();
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [checkingIds, setCheckingIds] = useState<Record<string, boolean>>({});
 
@@ -30,12 +33,14 @@ export const MonitorView: React.FC<MonitorViewProps> = ({
   const attachMutation = useMutation({
     mutationFn: api.attachNotebook,
     onSuccess: () => {
+      const kernelName = attachForm.kernel;
       queryClient.invalidateQueries({ queryKey: ['notebooks'] });
       setIsAttachModalOpen(false);
       setAttachForm({ account_id: '', kernel: '', wandb_account_id: '', run_ref: '' });
+      showSuccess('Notebook attached', `Attached ${kernelName || 'kernel'} to monitor.`);
     },
     onError: (err: any) => {
-      alert(`Attach failed: ${err.message}`);
+      showError('Attach failed', err?.message || 'Could not attach notebook.');
     },
   });
 
@@ -43,12 +48,13 @@ export const MonitorView: React.FC<MonitorViewProps> = ({
     setCheckingIds(prev => ({ ...prev, [id]: true }));
     try {
       await api.checkNotebook(id);
+      showSuccess('Check dispatched', `Status check queued for notebook ${id.slice(0, 8)}`);
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['notebooks'] });
         setCheckingIds(prev => ({ ...prev, [id]: false }));
       }, 1500);
     } catch (err: any) {
-      alert(`Check failed: ${err.message}`);
+      showError('Check failed', err?.message || 'Failed to dispatch status check.');
       setCheckingIds(prev => ({ ...prev, [id]: false }));
     }
   };
@@ -116,80 +122,105 @@ export const MonitorView: React.FC<MonitorViewProps> = ({
       </div>
 
       {/* Attach Modal */}
-      {isAttachModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-base font-bold text-white">Attach Existing Notebook</h3>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Kaggle Account</label>
-                <select
-                  value={attachForm.account_id}
-                  onChange={e => setAttachForm({ ...attachForm, account_id: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200"
-                >
-                  <option value="">Select Kaggle Account</option>
-                  {accounts.filter(a => a.provider === 'kaggle').map(a => (
-                    <option key={a.id} value={a.id}>{a.name} ({a.principal})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">Kernel Ref (username/slug)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. bokhnhl/kaggle-bhsd-mean-teacher-dual-gpu"
-                  value={attachForm.kernel}
-                  onChange={e => setAttachForm({ ...attachForm, kernel: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 font-mono text-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">W&B Account (Optional)</label>
-                <select
-                  value={attachForm.wandb_account_id}
-                  onChange={e => setAttachForm({ ...attachForm, wandb_account_id: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200"
-                >
-                  <option value="">Select W&B Account (optional)</option>
-                  {accounts.filter(a => a.provider === 'wandb').map(a => (
-                    <option key={a.id} value={a.id}>{a.name} ({a.principal})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">W&B Run Ref (entity/project/run-id)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. entity/project/devkj8qd"
-                  value={attachForm.run_ref}
-                  onChange={e => setAttachForm({ ...attachForm, run_ref: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 font-mono text-slate-200"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setIsAttachModalOpen(false)}
-                className="px-3 py-1.5 text-xs rounded bg-slate-800 text-slate-300 hover:bg-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => attachMutation.mutate(attachForm)}
-                disabled={!attachForm.account_id || !attachForm.kernel || attachMutation.isPending}
-                className="px-4 py-1.5 text-xs font-semibold rounded bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
-              >
-                {attachMutation.isPending ? 'Attaching...' : 'Attach'}
-              </button>
-            </div>
+      <Modal
+        isOpen={isAttachModalOpen}
+        onClose={() => setIsAttachModalOpen(false)}
+        title="Attach Existing Kaggle Kernel"
+        description="Connect a running or finished Kaggle kernel to live polling and telemetry."
+        maxWidth="md"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (attachForm.account_id && attachForm.kernel) {
+              attachMutation.mutate(attachForm);
+            }
+          }}
+          className="space-y-4 text-xs"
+        >
+          <div>
+            <label htmlFor="attach-account" className="block text-slate-300 font-medium mb-1">
+              Kaggle Account <span className="text-rose-400">*</span>
+            </label>
+            <select
+              id="attach-account"
+              value={attachForm.account_id}
+              onChange={e => setAttachForm({ ...attachForm, account_id: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              required
+            >
+              <option value="">Select Kaggle account</option>
+              {accounts.filter(a => a.provider === 'kaggle').map(a => (
+                <option key={a.id} value={a.id}>{a.name} ({a.principal})</option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+
+          <div>
+            <label htmlFor="attach-kernel" className="block text-slate-300 font-medium mb-1">
+              Kernel Reference <span className="text-rose-400">*</span>
+            </label>
+            <input
+              id="attach-kernel"
+              type="text"
+              placeholder="e.g. username/slug-title"
+              value={attachForm.kernel}
+              onChange={e => setAttachForm({ ...attachForm, kernel: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              required
+            />
+            <p className="text-[11px] text-slate-500 mt-1">Must match the Kaggle author/slug format.</p>
+          </div>
+
+          <div>
+            <label htmlFor="attach-wandb-acc" className="block text-slate-300 font-medium mb-1">
+              Weights & Biases Connection <span className="text-slate-500 text-[11px]">(optional)</span>
+            </label>
+            <select
+              id="attach-wandb-acc"
+              value={attachForm.wandb_account_id}
+              onChange={e => setAttachForm({ ...attachForm, wandb_account_id: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">None (telemetry will rely only on Kaggle logs)</option>
+              {accounts.filter(a => a.provider === 'wandb').map(a => (
+                <option key={a.id} value={a.id}>{a.name} ({a.principal})</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="attach-run-ref" className="block text-slate-300 font-medium mb-1">
+              W&B Run Reference <span className="text-slate-500 text-[11px]">(optional)</span>
+            </label>
+            <input
+              id="attach-run-ref"
+              type="text"
+              placeholder="entity/project/run-id"
+              value={attachForm.run_ref}
+              onChange={e => setAttachForm({ ...attachForm, run_ref: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/80">
+            <button
+              type="button"
+              onClick={() => setIsAttachModalOpen(false)}
+              className="px-3 py-2 text-xs rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!attachForm.account_id || !attachForm.kernel || attachMutation.isPending}
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 transition"
+            >
+              {attachMutation.isPending ? 'Attaching...' : 'Attach Kernel'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

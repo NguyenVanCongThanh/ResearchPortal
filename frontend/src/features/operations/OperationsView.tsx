@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layers, RefreshCw, AlertCircle, CheckCircle2, Clock, HelpCircle } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Operation } from '../../types';
+import { useToast } from '../../components/Toast';
+import { Modal } from '../../components/Modal';
 
 interface OperationsViewProps {
   operations: Operation[];
@@ -10,6 +12,7 @@ interface OperationsViewProps {
 
 export const OperationsView: React.FC<OperationsViewProps> = ({ operations }) => {
   const queryClient = useQueryClient();
+  const { showSuccess, showError, showInfo } = useToast();
   const [filterState, setFilterState] = useState<string>('all');
   const [selectedOp, setSelectedOp] = useState<Operation | null>(null);
   const [resolveAccepted, setResolveAccepted] = useState(true);
@@ -19,11 +22,11 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ operations }) =>
   const reconcileMutation = useMutation({
     mutationFn: (opId: string) => api.reconcileOperation(opId),
     onSuccess: (data) => {
-      alert(data.message || 'Operation reconciled.');
+      showInfo('Reconciliation completed', data.message || 'Operation reconciled.');
       queryClient.invalidateQueries({ queryKey: ['operations'] });
     },
     onError: (err: any) => {
-      alert(`Reconcile failed: ${err.message}`);
+      showError('Reconcile failed', err?.message || 'Failed to reconcile operation.');
     },
   });
 
@@ -35,12 +38,12 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ operations }) =>
         remote_version: payload.remote_version || undefined,
       }),
     onSuccess: () => {
-      alert('Operation resolution recorded and target lock released.');
+      showSuccess('Ambiguity resolved', 'Resolution recorded and lock released.');
       setSelectedOp(null);
       queryClient.invalidateQueries({ queryKey: ['operations'] });
     },
     onError: (err: any) => {
-      alert(`Resolution failed: ${err.message}`);
+      showError('Resolution failed', err?.message || 'Could not record resolution.');
     },
   });
 
@@ -154,91 +157,105 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ operations }) =>
       </div>
 
       {/* Resolve Modal */}
-      {selectedOp && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <HelpCircle className="w-4 h-4 text-amber-400" /> Operator Resolution for #{selectedOp.id.slice(0, 8)}
-            </h3>
-            <p className="text-xs text-slate-400">
-              When a dispatch times out or terminates ambiguously, the target lock is held until an operator inspects remote evidence and records a final decision.
-            </p>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Decision</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-1.5 text-slate-300">
-                    <input
-                      type="radio"
-                      checked={resolveAccepted}
-                      onChange={() => setResolveAccepted(true)}
-                      className="text-indigo-600"
-                    />
-                    Accept (Confirmed sent on Kaggle)
-                  </label>
-                  <label className="flex items-center gap-1.5 text-slate-300">
-                    <input
-                      type="radio"
-                      checked={!resolveAccepted}
-                      onChange={() => setResolveAccepted(false)}
-                      className="text-indigo-600"
-                    />
-                    Reject (Not sent / Release lock)
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">Remote Evidence / Audit Notes</label>
-                <textarea
-                  rows={3}
-                  placeholder="e.g. Verified Kaggle version 3 was successfully pushed and executed."
-                  value={resolveEvidence}
-                  onChange={e => setResolveEvidence(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200"
-                />
-              </div>
-
-              {resolveAccepted && (
-                <div>
-                  <label className="block text-slate-400 mb-1">Remote Version (Optional)</label>
+      <Modal
+        isOpen={Boolean(selectedOp)}
+        onClose={() => setSelectedOp(null)}
+        title={selectedOp ? `Operator Resolution for #${selectedOp.id.slice(0, 8)}` : 'Resolve Ambiguity'}
+        description="When a remote dispatch times out or exits with unknown status, the kernel fence lock is retained until an operator verifies external evidence."
+        icon={<HelpCircle className="w-4 h-4 text-amber-400" />}
+        maxWidth="md"
+      >
+        {selectedOp && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (resolveEvidence) {
+                resolveMutation.mutate({
+                  opId: selectedOp.id,
+                  accepted: resolveAccepted,
+                  evidence: resolveEvidence,
+                  remote_version: remoteVersion,
+                });
+              }
+            }}
+            className="space-y-4 text-xs"
+          >
+            <div>
+              <span className="block text-slate-300 font-medium mb-1.5">Reconciliation Decision</span>
+              <div className="flex flex-col sm:flex-row gap-3 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
                   <input
-                    type="text"
-                    placeholder="e.g. 3"
-                    value={remoteVersion}
-                    onChange={e => setRemoteVersion(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 font-mono text-slate-200"
+                    type="radio"
+                    name="decision"
+                    checked={resolveAccepted}
+                    onChange={() => setResolveAccepted(true)}
+                    className="text-indigo-600 focus:ring-0"
                   />
-                </div>
-              )}
+                  <span>Accept (Confirmed executed on Kaggle)</span>
+                </label>
+                <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="decision"
+                    checked={!resolveAccepted}
+                    onChange={() => setResolveAccepted(false)}
+                    className="text-indigo-600 focus:ring-0"
+                  />
+                  <span>Reject (Failed / Release lock)</span>
+                </label>
+              </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div>
+              <label htmlFor="resolve-evidence" className="block text-slate-300 font-medium mb-1">
+                Audit Log & Remote Evidence <span className="text-rose-400">*</span>
+              </label>
+              <textarea
+                id="resolve-evidence"
+                rows={3}
+                placeholder="e.g. Verified Kaggle version 3 was successfully received, queued, and completed."
+                value={resolveEvidence}
+                onChange={e => setResolveEvidence(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono text-xs"
+                required
+              />
+            </div>
+
+            {resolveAccepted && (
+              <div>
+                <label htmlFor="resolve-version" className="block text-slate-300 font-medium mb-1">
+                  Remote Kaggle Version <span className="text-slate-500 text-[11px]">(optional)</span>
+                </label>
+                <input
+                  id="resolve-version"
+                  type="text"
+                  placeholder="e.g. 3"
+                  value={remoteVersion}
+                  onChange={e => setRemoteVersion(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/80">
               <button
+                type="button"
                 onClick={() => setSelectedOp(null)}
-                className="px-3 py-1.5 text-xs rounded bg-slate-800 text-slate-300 hover:bg-slate-700"
+                className="px-3.5 py-2 text-xs rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition"
               >
                 Cancel
               </button>
               <button
-                onClick={() =>
-                  resolveMutation.mutate({
-                    opId: selectedOp.id,
-                    accepted: resolveAccepted,
-                    evidence: resolveEvidence,
-                    remote_version: remoteVersion,
-                  })
-                }
+                type="submit"
                 disabled={!resolveEvidence || resolveMutation.isPending}
-                className="px-4 py-1.5 text-xs font-semibold rounded bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50"
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50 transition shadow-sm"
               >
                 {resolveMutation.isPending ? 'Recording...' : 'Record Resolution'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </form>
+        )}
+      </Modal>
     </div>
   );
 };
